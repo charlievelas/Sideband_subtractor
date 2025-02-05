@@ -41,7 +41,7 @@ void sb_subtractor(){
     */
 
     // Load file, tree, branches and distributions
-    TFile infile("distributions_order1.root");
+    TFile infile("distributions_uniform.root");
     TTree *tree = (TTree*)infile.Get(infile.GetListOfKeys()->At(0)->GetName());
     double mass;
     int massAIndx;
@@ -75,7 +75,7 @@ void sb_subtractor(){
     tree->Draw("pz>>hist1(100,-5,5)",hist1cond);
     TH1F *hist1 = (TH1F*)gDirectory->Get("hist1");
     // Plot 2 (hist 2) - pz in the mass signal regions
-    tree->Draw("pz>>hist2(100,-5,5)",hist23cond); 
+    tree->Draw("pz>>hist2(100,-5,5)",hist23cond);
     TH1F *hist2 = (TH1F*)gDirectory->Get("hist2");
     // Plot 2 - pz sideband subtracted
     tree->Draw("pz>>hist2sub(100,-5,5)",hist23cond); 
