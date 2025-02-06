@@ -1,0 +1,18 @@
+Basic version.
+
+Capabilties:
+ - choose any branch from tree disc and cont variables
+ - plot with user-inputted bin number and range
+ - fit with polynomial and gauss function
+ 	- fit mean is chosen range midpoint
+	- fit std is mean/10
+ - separate cont using user-inputted signal and sideband regions
+ - calculate weight
+ - conduct sideband subtract on cont variable in disc chosen signal range
+
+Required improvements:
+ - add legend
+ - a basic draw function with no fitting so user can chose range
+ - a separate fit function (and button) which doesn't allow fit variables with zero difference (eg sig max=0 and sig min =0)
+ - gives error if it can't fit
+ - gives error if below left sideband or above right sideband or if there is any overlap
