@@ -17,301 +17,324 @@
 // Fit functions
 // Background - Quadratic background function
 double Background(double *x, double *par) {
-    return par[0] + par[1]*x[0];
+   return par[0] + par[1]*x[0];
 }
 // Signal - Gauss Peak function
 double GaussPeak(double *x, double *par) {
-    return par[0]*TMath::Gaus(x[0], par[1], par[2]);
+   return par[0]*TMath::Gaus(x[0], par[1], par[2]);
 }
 // Sum of background and peak function
 double fitFunction(double *x, double *par) {
-    return Background(x,par) + GaussPeak(x,&par[2]);
-    //&par[5] is where the guass parameters start in the length-8 'par' array containing the parameters for the background and the peak
+   return Background(x,par) + GaussPeak(x,&par[2]);
+   //&par[5] is where the guass parameters start in the length-8 'par' array containing the parameters for the background and the peak
 }
 
 class MyMainFrame {
-    RQ_OBJECT("MyMainFrame")
+   RQ_OBJECT("MyMainFrame")
 private:
-    TGMainFrame         *fMain;
-    TRootEmbeddedCanvas *fEcanvas;
-    TCanvas             *fCanvas;
-    // Discrimnating variable (i'd use "_Disc" but its not neat)
-    TGComboBox          *fComboBoxDisc;  // Drop-down list for branch names for discriminating variable
-    TGNumberEntry       *fBinsEntryDisc;  // Number of bins input
-    TGNumberEntry       *fMinXEntryDisc;  // Minimum X input
-    TGNumberEntry       *fMaxXEntryDisc;  // Maximum X input
-    TGNumberEntry       *fSigMinInput;   // Min input box
-    TGNumberEntry       *fSigMaxInput;   // Max input box
-    TGNumberEntry       *fLSBMinInput;   // Min input box
-    TGNumberEntry       *fLSBMaxInput;   // Max input box
-    TGNumberEntry       *fRSBMinInput;   // Min input box
-    TGNumberEntry       *fRSBMaxInput;   // Max input box
-    // Control variable
-    TGComboBox          *fComboBoxCont;  // Drop-down list for branch names for control variable
-    TGNumberEntry       *fBinsEntryCont;  // Number of bins input
-    TGNumberEntry       *fMinXEntryCont;  // Minimum X input
-    TGNumberEntry       *fMaxXEntryCont;  // Maximum X input
-    // Trees and files
-    TFile               *fFile1;       // ROOT file pointer
-    TTree               *fTree;       // TTree pointer
-    Int_t               fSelectedBranchDisc; // Store selected branch index
-    Int_t               fSelectedBranchCont; // Store selected branch index
+   TGMainFrame         *fMain;
+   TRootEmbeddedCanvas *fEcanvas;
+   TCanvas             *fCanvas;
+   // Discrimnating variable (i'd use "_Disc" but its not neat)
+   TGComboBox          *fComboBoxDisc;  // Drop-down list for branch names for discriminating variable
+   TGNumberEntry       *fBinsEntryDisc;  // Number of bins input
+   TGNumberEntry       *fMinXEntryDisc;  // Minimum X input
+   TGNumberEntry       *fMaxXEntryDisc;  // Maximum X input
+   TGNumberEntry       *fSigMinInput;   // Min input box
+   TGNumberEntry       *fSigMaxInput;   // Max input box
+   TGNumberEntry       *fLSBMinInput;   // Min input box
+   TGNumberEntry       *fLSBMaxInput;   // Max input box
+   TGNumberEntry       *fRSBMinInput;   // Min input box
+   TGNumberEntry       *fRSBMaxInput;   // Max input box
+   // Control variable
+   TGComboBox          *fComboBoxCont;  // Drop-down list for branch names for control variable
+   TGNumberEntry       *fBinsEntryCont;  // Number of bins input
+   TGNumberEntry       *fMinXEntryCont;  // Minimum X input
+   TGNumberEntry       *fMaxXEntryCont;  // Maximum X input
+   // Trees and files
+   TFile               *fFile1;       // ROOT file pointer
+   TTree               *fTree;       // TTree pointer
+   Int_t               fSelectedBranchDisc; // Store selected branch index
+   Int_t               fSelectedBranchCont; // Store selected branch index
 public:
-    MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* filename1);
-    virtual ~MyMainFrame();
-    void DoDraw();
-    void OnSelectDisc(Int_t id);
-    void OnSelectCont(Int_t id);
+   MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* filename1);
+   virtual ~MyMainFrame();
+   void DoDraw();
+   void OnSelectDisc(Int_t id);
+   void OnSelectCont(Int_t id);
 };
 
 MyMainFrame::MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* filename1) 
-    : fSelectedBranchDisc(-1), fSelectedBranchCont(-1) {  // Initialize fSelectedBranchDisc to -1 (no selection initially)
+   : fSelectedBranchDisc(-1), fSelectedBranchCont(-1) {  // Initialize fSelectedBranchDisc to -1 (no selection initially)
 
-    // Open the ROOT files
-    fFile1 = TFile::Open(filename1);
-    if (!fFile1 || !fFile1->IsOpen()) {
-        Error("MyMainFrame", "Failed to open file 1: %s", filename1);
-        return;
-    }
+   // Open the ROOT files
+   fFile1 = TFile::Open(filename1);
+   if (!fFile1 || !fFile1->IsOpen()) {
+      Error("MyMainFrame", "Failed to open file 1: %s", filename1);
+      return;
+   }
 
-    // Get the first TTrees from the files
-    fTree = (TTree*)fFile1->Get(fFile1->GetListOfKeys()->At(0)->GetName()); // 'fTree' has remained 'fTree' for the sake of not having to rewrite large parts of later sections
+   // Get the first TTrees from the files
+   fTree = (TTree*)fFile1->Get(fFile1->GetListOfKeys()->At(0)->GetName()); // 'fTree' has remained 'fTree' for the sake of not having to rewrite large parts of later sections
     
-    // Create a main frame
-    fMain = new TGMainFrame(p, w, h);
+   // Create a main frame
+   fMain = new TGMainFrame(p, w, h);
 
-    //// Canvas section
-    // Create a horizontal frame to hold the canvas and widgets side by side
-    TGHorizontalFrame *hframe = new TGHorizontalFrame(fMain, w, h);
+   //// Canvas section
+   // Create a horizontal frame to hold the canvas and widgets side by side
+   TGHorizontalFrame *hframe = new TGHorizontalFrame(fMain, w, h);
 
-    // Create a vertical frame to hold the label and canvas
-    TGVerticalFrame *vframe1 = new TGVerticalFrame(hframe);
+   // Create a vertical frame to hold the label and canvas
+   TGVerticalFrame *vframe1 = new TGVerticalFrame(hframe);
 
-    // Create canvas widget (on the left)
-    fEcanvas = new TRootEmbeddedCanvas("Ecanvas", vframe1, 1400, 700);
-    vframe1->AddFrame(fEcanvas, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5)); // Canvas with all margins
+   // Create canvas widget (on the left)
+   fEcanvas = new TRootEmbeddedCanvas("Ecanvas", vframe1, 1400, 700);
+   vframe1->AddFrame(fEcanvas, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5)); // Canvas with all margins
 
-    // Split canvas into two pads
-    fCanvas = fEcanvas->GetCanvas();
-    fCanvas->Divide(2, 1);
+   // Split canvas into two pads
+   fCanvas = fEcanvas->GetCanvas();
+   fCanvas->Divide(2, 1);
 
-    // Add canvas1 to hframe
-    hframe->AddFrame(vframe1, new TGLayoutHints(kLHintsTop | kLHintsLeft | kLHintsTop | kLHintsLeft, 5, 5, 5, 5)); // Vertical frame in the main frame
+   // Add canvas1 to hframe
+   hframe->AddFrame(vframe1, new TGLayoutHints(kLHintsTop | kLHintsLeft | kLHintsTop | kLHintsLeft, 5, 5, 5, 5)); // Vertical frame in the main frame
 
-    // Create a vertical frame to hold the canvas
-    TGVerticalFrame *vframe2 = new TGVerticalFrame(hframe);
+   // Create a vertical frame to hold the canvas
+   TGVerticalFrame *vframe2 = new TGVerticalFrame(hframe);
 
-    // Create a vertical frame for buttons and drop-down list (on the right)
-    TGVerticalFrame *vframe = new TGVerticalFrame(hframe, 200, 140);
+   // Create a vertical frame for buttons and drop-down list (on the right)
+   TGVerticalFrame *vframe = new TGVerticalFrame(hframe, 200, 140);
 
-    //// Widget section
-    // Create and add the Exit button at the top (before all other widgets)
-    TGTextButton *exit = new TGTextButton(vframe, "&Exit", "gApplication->Terminate(0)");
-    vframe->AddFrame(exit, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   //// Widget section
+   // Create and add the Exit button at the top (before all other widgets)
+   TGTextButton *exit = new TGTextButton(vframe, "&Exit", "gApplication->Terminate(0)");
+   vframe->AddFrame(exit, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    // Create a vertical frame for the labels and combo boxes (Branch name and Branch to cut on)
-    TGVerticalFrame *comboFrame = new TGVerticalFrame(vframe, 200, 60);
+   // Add a 3D horizontal line (separator) between the Exit button and the Discriminating Variable label
+   TGHorizontal3DLine *hline1 = new TGHorizontal3DLine(vframe);
+   hline1->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
+   vframe->AddFrame(hline1, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    // Discriminating variable section label
-    TGLabel *DiscLabel = new TGLabel(comboFrame, "Discriminating Variable");
-    comboFrame->AddFrame(DiscLabel, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   // Create a vertical frame for the labels and combo boxes (Branch name and Branch to cut on)
+   TGVerticalFrame *comboFrame = new TGVerticalFrame(vframe, 200, 60);
 
-    // "Choose variable:" label and ComboBox
-    TGLabel *branchLabel = new TGLabel(comboFrame, "Choose variable:");
-    comboFrame->AddFrame(branchLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   // Discriminating variable section label
+   TGLabel *DiscLabel = new TGLabel(comboFrame, "Discriminating Variable");
+   comboFrame->AddFrame(DiscLabel, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 5));
 
-    fComboBoxDisc = new TGComboBox(comboFrame, "Choose variable", 50);
-    fComboBoxDisc->Select(1); // Default selection (1)
-    fComboBoxDisc->Connect("Selected(Int_t)", "MyMainFrame", this, "OnSelectDisc(Int_t)");
-    fComboBoxDisc->Resize(200, 25);
-    comboFrame->AddFrame(fComboBoxDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // "Choose variable:" label and ComboBox
+   TGLabel *branchLabel = new TGLabel(comboFrame, "Choose variable:");
+   comboFrame->AddFrame(branchLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
 
-    vframe->AddFrame(comboFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   fComboBoxDisc = new TGComboBox(comboFrame, "Choose variable", 50);
+   fComboBoxDisc->Select(1); // Default selection (1)
+   fComboBoxDisc->Connect("Selected(Int_t)", "MyMainFrame", this, "OnSelectDisc(Int_t)");
+   fComboBoxDisc->Resize(200, 25);
+   comboFrame->AddFrame(fComboBoxDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    // Create a horizontal frame for the three input boxes (Bins, Min x, Max x)
-    TGHorizontalFrame *hInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+   vframe->AddFrame(comboFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    // Bins label and input box
-    TGVerticalFrame *binsFrame = new TGVerticalFrame(hInputFrame, 60, 60);
-    TGLabel *binsLabel = new TGLabel(binsFrame, "Bins:");
-    binsFrame->AddFrame(binsLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fBinsEntryDisc = new TGNumberEntry(binsFrame, 100, 5, -1, TGNumberFormat::kNESInteger, TGNumberFormat::kNEAAnyNumber);
-    fBinsEntryDisc->SetWidth(60);
-    binsFrame->AddFrame(fBinsEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hInputFrame->AddFrame(binsFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Create a horizontal frame for the three input boxes (Bins, Min x, Max x)
+   TGHorizontalFrame *hInputFrame = new TGHorizontalFrame(vframe, 200, 120);
 
-    // Min x label and input box
-    TGVerticalFrame *minXFrame = new TGVerticalFrame(hInputFrame, 60, 60);
-    TGLabel *minXLabel = new TGLabel(minXFrame, "Min x:");
-    minXFrame->AddFrame(minXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fMinXEntryDisc = new TGNumberEntry(minXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fMinXEntryDisc->SetWidth(60);
-    minXFrame->AddFrame(fMinXEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hInputFrame->AddFrame(minXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Bins label and input box
+   TGVerticalFrame *binsFrame = new TGVerticalFrame(hInputFrame, 60, 60);
+   TGLabel *binsLabel = new TGLabel(binsFrame, "Bins:");
+   binsFrame->AddFrame(binsLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fBinsEntryDisc = new TGNumberEntry(binsFrame, 100, 5, -1, TGNumberFormat::kNESInteger, TGNumberFormat::kNEAAnyNumber);
+   fBinsEntryDisc->SetWidth(60);
+   binsFrame->AddFrame(fBinsEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame->AddFrame(binsFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    // Max x label and input box
-    TGVerticalFrame *maxXFrame = new TGVerticalFrame(hInputFrame, 60, 60);
-    TGLabel *maxXLabel = new TGLabel(maxXFrame, "Max x:");
-    maxXFrame->AddFrame(maxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fMaxXEntryDisc = new TGNumberEntry(maxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fMaxXEntryDisc->SetWidth(60);
-    maxXFrame->AddFrame(fMaxXEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hInputFrame->AddFrame(maxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Min x label and input box
+   TGVerticalFrame *minXFrame = new TGVerticalFrame(hInputFrame, 60, 60);
+   TGLabel *minXLabel = new TGLabel(minXFrame, "Min x:");
+   minXFrame->AddFrame(minXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMinXEntryDisc = new TGNumberEntry(minXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMinXEntryDisc->SetWidth(60);
+   minXFrame->AddFrame(fMinXEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame->AddFrame(minXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    vframe->AddFrame(hInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   // Max x label and input box
+   TGVerticalFrame *maxXFrame = new TGVerticalFrame(hInputFrame, 60, 60);
+   TGLabel *maxXLabel = new TGLabel(maxXFrame, "Max x:");
+   maxXFrame->AddFrame(maxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMaxXEntryDisc = new TGNumberEntry(maxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMaxXEntryDisc->SetWidth(60);
+   maxXFrame->AddFrame(fMaxXEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame->AddFrame(maxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    // Create a horizontal frame for the signal region inputs
-    TGHorizontalFrame *hSigInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+   vframe->AddFrame(hInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    // Signal min x label and input box
-    TGVerticalFrame *SigMinXFrame = new TGVerticalFrame(hSigInputFrame, 60, 60);
-    TGLabel *SigMinXLabel = new TGLabel(SigMinXFrame, "Min x:");
-    SigMinXFrame->AddFrame(SigMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fSigMinInput = new TGNumberEntry(SigMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fSigMinInput->SetWidth(60);
-    SigMinXFrame->AddFrame(fSigMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hSigInputFrame->AddFrame(SigMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Create a horizontal frame for the signal region inputs
+   TGHorizontalFrame *hSigLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *SigLabel = new TGLabel(hSigLabelFrame, "Signal region:");
+   hSigLabelFrame->AddFrame(SigLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hSigLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
 
-    // Max x label and input box
-    TGVerticalFrame *SigMaxXFrame = new TGVerticalFrame(hSigInputFrame, 60, 60);
-    TGLabel *SigMaxXLabel = new TGLabel(SigMaxXFrame, "Max x:");
-    SigMaxXFrame->AddFrame(SigMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fSigMaxInput = new TGNumberEntry(SigMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fSigMaxInput->SetWidth(60);
-    SigMaxXFrame->AddFrame(fSigMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hSigInputFrame->AddFrame(SigMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   TGHorizontalFrame *hSigInputFrame = new TGHorizontalFrame(vframe, 200, 60);
 
-    vframe->AddFrame(hSigInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   // Signal min x label and input box
+   TGHorizontalFrame *SigMinXFrame = new TGHorizontalFrame(hSigInputFrame, 120, 60);
+   TGLabel *SigMinXLabel = new TGLabel(SigMinXFrame, "Min:");
+   SigMinXFrame->AddFrame(SigMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSigMinInput = new TGNumberEntry(SigMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSigMinInput->SetWidth(60);
+   SigMinXFrame->AddFrame(fSigMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSigInputFrame->AddFrame(SigMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
 
-    // Create a horizontal frame for the left sideband inputs
-    TGHorizontalFrame *hLSBInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+   // Max x label and input box
+   TGHorizontalFrame *SigMaxXFrame = new TGHorizontalFrame(hSigInputFrame, 120, 60);
+   TGLabel *SigMaxXLabel = new TGLabel(SigMaxXFrame, "Max:");
+   SigMaxXFrame->AddFrame(SigMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSigMaxInput = new TGNumberEntry(SigMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSigMaxInput->SetWidth(60);
+   SigMaxXFrame->AddFrame(fSigMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSigInputFrame->AddFrame(SigMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
 
-    // Left sideband min x label and input box
-    TGVerticalFrame *LSBMinXFrame = new TGVerticalFrame(hLSBInputFrame, 60, 60);
-    TGLabel *LSBMinXLabel = new TGLabel(LSBMinXFrame, "Min x:");
-    LSBMinXFrame->AddFrame(LSBMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fLSBMinInput = new TGNumberEntry(LSBMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fLSBMinInput->SetWidth(60);
-    LSBMinXFrame->AddFrame(fLSBMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hLSBInputFrame->AddFrame(LSBMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   vframe->AddFrame(hSigInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
 
-    // Left sideband max x label and input box
-    TGVerticalFrame *LSBMaxXFrame = new TGVerticalFrame(hLSBInputFrame, 60, 60);
-    TGLabel *LSBMaxXLabel = new TGLabel(LSBMaxXFrame, "Max x:");
-    LSBMaxXFrame->AddFrame(LSBMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fLSBMaxInput = new TGNumberEntry(LSBMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fLSBMaxInput->SetWidth(60);
-    LSBMaxXFrame->AddFrame(fLSBMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hLSBInputFrame->AddFrame(LSBMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Create a horizontal frame for the left sideband inputs
+   TGHorizontalFrame *hSBLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *SBLabel = new TGLabel(hSBLabelFrame, "Sideband regions:");
+   hSBLabelFrame->AddFrame(SBLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hSBLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
 
-    vframe->AddFrame(hLSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   TGHorizontalFrame *hLSBInputFrame = new TGHorizontalFrame(vframe, 200, 120);
 
-    // Create a horizontal frame for the right sideband inputs
-    TGHorizontalFrame *hRSBInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+   // Left sideband min x label and input box
+   TGHorizontalFrame *LSBMinXFrame = new TGHorizontalFrame(hLSBInputFrame, 60, 60);
+   TGLabel *LSBMinXLabel = new TGLabel(LSBMinXFrame, "L Min:");
+   LSBMinXFrame->AddFrame(LSBMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fLSBMinInput = new TGNumberEntry(LSBMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fLSBMinInput->SetWidth(60);
+   LSBMinXFrame->AddFrame(fLSBMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hLSBInputFrame->AddFrame(LSBMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
 
-    // Right sideband min x label and input box
-    TGVerticalFrame *RSBMinXFrame = new TGVerticalFrame(hRSBInputFrame, 60, 60);
-    TGLabel *RSBMinXLabel = new TGLabel(RSBMinXFrame, "Min x:");
-    RSBMinXFrame->AddFrame(RSBMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fRSBMinInput = new TGNumberEntry(RSBMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fRSBMinInput->SetWidth(60);
-    RSBMinXFrame->AddFrame(fRSBMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hRSBInputFrame->AddFrame(RSBMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Left sideband max x label and input box
+   TGHorizontalFrame *LSBMaxXFrame = new TGHorizontalFrame(hLSBInputFrame, 60, 60);
+   TGLabel *LSBMaxXLabel = new TGLabel(LSBMaxXFrame, "L Max:");
+   LSBMaxXFrame->AddFrame(LSBMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fLSBMaxInput = new TGNumberEntry(LSBMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fLSBMaxInput->SetWidth(60);
+   LSBMaxXFrame->AddFrame(fLSBMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hLSBInputFrame->AddFrame(LSBMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
 
-    // Right sideband max x label and input box
-    TGVerticalFrame *RSBMaxXFrame = new TGVerticalFrame(hRSBInputFrame, 60, 60);
-    TGLabel *RSBMaxXLabel = new TGLabel(RSBMaxXFrame, "Max x:");
-    RSBMaxXFrame->AddFrame(RSBMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fRSBMaxInput = new TGNumberEntry(RSBMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fRSBMaxInput->SetWidth(60);
-    RSBMaxXFrame->AddFrame(fRSBMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hRSBInputFrame->AddFrame(RSBMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   vframe->AddFrame(hLSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
 
-    vframe->AddFrame(hRSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   // Create a horizontal frame for the right sideband inputs
+   TGHorizontalFrame *hRSBInputFrame = new TGHorizontalFrame(vframe, 200, 120);
 
-    // horizontal line, figure out how to do
+   // Right sideband min x label and input box
+   TGHorizontalFrame *RSBMinXFrame = new TGHorizontalFrame(hRSBInputFrame, 60, 60);
+   TGLabel *RSBMinXLabel = new TGLabel(RSBMinXFrame, "R Min");
+   RSBMinXFrame->AddFrame(RSBMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fRSBMinInput = new TGNumberEntry(RSBMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fRSBMinInput->SetWidth(60);
+   RSBMinXFrame->AddFrame(fRSBMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hRSBInputFrame->AddFrame(RSBMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
 
-    // Create a vertical frame for the labels and combo boxes (Branch name and Branch to cut on)
-    TGVerticalFrame *comboFrame2 = new TGVerticalFrame(vframe, 200, 60);
+   // Right sideband max x label and input box
+   TGHorizontalFrame *RSBMaxXFrame = new TGHorizontalFrame(hRSBInputFrame, 60, 60);
+   TGLabel *RSBMaxXLabel = new TGLabel(RSBMaxXFrame, "R Max:");
+   RSBMaxXFrame->AddFrame(RSBMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fRSBMaxInput = new TGNumberEntry(RSBMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fRSBMaxInput->SetWidth(60);
+   RSBMaxXFrame->AddFrame(fRSBMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hRSBInputFrame->AddFrame(RSBMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
 
-    // Discriminating variable section label
-    TGLabel *ContLabel = new TGLabel(comboFrame2, "Discriminating Variable");
-    comboFrame2->AddFrame(ContLabel, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   vframe->AddFrame(hRSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
 
-    // "Choose variable:" label and ComboBox
-    TGLabel *branchLabel2 = new TGLabel(comboFrame2, "Choose variable:");
-    comboFrame2->AddFrame(branchLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   // Add a 3D horizontal line (separator) between the Exit button and the Discriminating Variable label
+   TGHorizontal3DLine *hline2 = new TGHorizontal3DLine(vframe);
+   hline2->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
+   vframe->AddFrame(hline2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    fComboBoxCont = new TGComboBox(comboFrame2, "Choose variable", 50);
-    fComboBoxCont->Select(1); // Default selection (1)
-    fComboBoxCont->Connect("Selected(Int_t)", "MyMainFrame", this, "OnSelectCont(Int_t)");
-    fComboBoxCont->Resize(200, 25);
-    comboFrame2->AddFrame(fComboBoxCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Create a vertical frame for the labels and combo boxes (Branch name and Branch to cut on)
+   TGVerticalFrame *comboFrame2 = new TGVerticalFrame(vframe, 200, 60);
 
-    vframe->AddFrame(comboFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   // Discriminating variable section label
+   TGLabel *ContLabel = new TGLabel(comboFrame2, "Control Variable");
+   comboFrame2->AddFrame(ContLabel, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 5));
 
-    // Create a horizontal frame for the three input boxes (Bins, Min x, Max x)
-    TGHorizontalFrame *hInputFrame2 = new TGHorizontalFrame(vframe, 200, 120);
+   // "Choose variable:" label and ComboBox
+   TGLabel *branchLabel2 = new TGLabel(comboFrame2, "Choose variable:");
+   comboFrame2->AddFrame(branchLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
 
-    // Bins label and input box
-    TGVerticalFrame *binsFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
-    TGLabel *binsLabel2 = new TGLabel(binsFrame2, "Bins:");
-    binsFrame2->AddFrame(binsLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fBinsEntryCont = new TGNumberEntry(binsFrame2, 100, 5, -1, TGNumberFormat::kNESInteger, TGNumberFormat::kNEAAnyNumber);
-    fBinsEntryCont->SetWidth(60);
-    binsFrame2->AddFrame(fBinsEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hInputFrame2->AddFrame(binsFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   fComboBoxCont = new TGComboBox(comboFrame2, "Choose variable", 50);
+   fComboBoxCont->Select(1); // Default selection (1)
+   fComboBoxCont->Connect("Selected(Int_t)", "MyMainFrame", this, "OnSelectCont(Int_t)");
+   fComboBoxCont->Resize(200, 25);
+   comboFrame2->AddFrame(fComboBoxCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    // Min x label and input box
-    TGVerticalFrame *minXFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
-    TGLabel *minXLabel2 = new TGLabel(minXFrame2, "Min x:");
-    minXFrame2->AddFrame(minXLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fMinXEntryCont = new TGNumberEntry(minXFrame2, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fMinXEntryCont->SetWidth(60);
-    minXFrame2->AddFrame(fMinXEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hInputFrame2->AddFrame(minXFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   vframe->AddFrame(comboFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    // Max x label and input box
-    TGVerticalFrame *maxXFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
-    TGLabel *maxXLabel2 = new TGLabel(maxXFrame2, "Max x:");
-    maxXFrame2->AddFrame(maxXLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
-    fMaxXEntryCont = new TGNumberEntry(maxXFrame2, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
-    fMaxXEntryCont->SetWidth(60);
-    maxXFrame2->AddFrame(fMaxXEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
-    hInputFrame2->AddFrame(maxXFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   // Create a horizontal frame for the three input boxes (Bins, Min x, Max x)
+   TGHorizontalFrame *hInputFrame2 = new TGHorizontalFrame(vframe, 200, 120);
 
-    vframe->AddFrame(hInputFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
-    
-    // Add the Draw button
-    TGTextButton *draw = new TGTextButton(vframe, "&Draw");
-    draw->Connect("Clicked()", "MyMainFrame", this, "DoDraw()"); 
-    vframe->AddFrame(draw, new TGLayoutHints(kLHintsCenterX, 10, 5, 10, 5));
+   // Bins label and input box
+   TGVerticalFrame *binsFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
+   TGLabel *binsLabel2 = new TGLabel(binsFrame2, "Bins:");
+   binsFrame2->AddFrame(binsLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fBinsEntryCont = new TGNumberEntry(binsFrame2, 100, 5, -1, TGNumberFormat::kNESInteger, TGNumberFormat::kNEAAnyNumber);
+   fBinsEntryCont->SetWidth(60);
+   binsFrame2->AddFrame(fBinsEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame2->AddFrame(binsFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    hframe->AddFrame(vframe, new TGLayoutHints(kLHintsCenterY, 2, 2, 2, 2));
+   // Min x label and input box
+   TGVerticalFrame *minXFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
+   TGLabel *minXLabel2 = new TGLabel(minXFrame2, "Min");
+   minXFrame2->AddFrame(minXLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMinXEntryCont = new TGNumberEntry(minXFrame2, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMinXEntryCont->SetWidth(60);
+   minXFrame2->AddFrame(fMinXEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame2->AddFrame(minXFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    fMain->AddFrame(hframe, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+   // Max x label and input box
+   TGVerticalFrame *maxXFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
+   TGLabel *maxXLabel2 = new TGLabel(maxXFrame2, "Max");
+   maxXFrame2->AddFrame(maxXLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMaxXEntryCont = new TGNumberEntry(maxXFrame2, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMaxXEntryCont->SetWidth(60);
+   maxXFrame2->AddFrame(fMaxXEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame2->AddFrame(maxXFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
 
-    // Set a name to the main frame
-    fMain->SetWindowName("TTree Branch Selector");
+   vframe->AddFrame(hInputFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-    // Populate the ComboBoxes with branch names
-    if (fTree) {
-       TObjArray *branches = fTree->GetListOfBranches();
-       for (int i = 0; i < branches->GetEntries(); i++) {
-          TBranch *branch = (TBranch*)branches->At(i);
-          fComboBoxCont->AddEntry(branch->GetName(), i+1); // Add branches to ComboBox (index + 1)
-          fComboBoxDisc->AddEntry(branch->GetName(), i+1); // Add branches to ComboBox (index + 1)
-       }
-    }
+   // Add a 3D horizontal line (separator) between the Exit button and the Discriminating Variable label
+   TGHorizontal3DLine *hline3 = new TGHorizontal3DLine(vframe);
+   hline3->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
+   vframe->AddFrame(hline3, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   
+   // Add the Draw button
+   TGTextButton *draw = new TGTextButton(vframe, "&Draw");
+   draw->Connect("Clicked()", "MyMainFrame", this, "DoDraw()"); 
+   vframe->AddFrame(draw, new TGLayoutHints(kLHintsCenterX, 10, 5, 10, 5));
 
-    // Map all subwindows of main frame
-    fMain->MapSubwindows();
+   hframe->AddFrame(vframe, new TGLayoutHints(kLHintsCenterY, 2, 2, 2, 2));
 
-    // Initialize the layout algorithm
-    fMain->Resize(fMain->GetDefaultSize());
+   fMain->AddFrame(hframe, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
-    // Map main frame
-    fMain->MapWindow();
+   // Set a name to the main frame
+   fMain->SetWindowName("TTree Branch Selector");
+
+   // Populate the ComboBoxes with branch names
+   if (fTree) {
+      TObjArray *branches = fTree->GetListOfBranches();
+      for (int i = 0; i < branches->GetEntries(); i++) {
+         TBranch *branch = (TBranch*)branches->At(i);
+         fComboBoxCont->AddEntry(branch->GetName(), i+1); // Add branches to ComboBox (index + 1)
+         fComboBoxDisc->AddEntry(branch->GetName(), i+1); // Add branches to ComboBox (index + 1)
+      }
+   }
+
+   // Map all subwindows of main frame
+   fMain->MapSubwindows();
+
+   // Initialize the layout algorithm
+   fMain->Resize(fMain->GetDefaultSize());
+
+   // Map main frame
+   fMain->MapWindow();
 
 }
 
@@ -393,7 +416,8 @@ void MyMainFrame::DoDraw() {
    fCanvas->cd(1);
    // Sideband subtraction PART 1: Fitting and calculating weight
    // Histograms
-   TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont);
+   // EDIT REQUIRED: change the two lines below so that the histogram is drawn in range of interest (new variables required) rather than the draw variables fMinXCont, fMaxXCont, essentially a specific fill range is required
+   TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont); 
    TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
    TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont);
    TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
@@ -402,17 +426,19 @@ void MyMainFrame::DoDraw() {
    fTree->Draw(drawCommandBG,BGcond);
    TH1F *histSB = (TH1F*)gDirectory->Get("histSB");
    // Fit function
-   TF1 *fitFcn = new TF1("fitFcn",fitFunction,0,10,5);
-   fitFcn->SetParameters(1,1,1,5,0.5);
+   TF1 *fitFcn = new TF1("fitFcn",fitFunction,fMinXDisc, fMaxXDisc,5);
+   double mean = (fMaxXDisc-fMinXDisc)/2;
+   double std = mean/10;
+   fitFcn->SetParameters(1,1,1,mean,std);
    fitFcn->SetLineColor(kViolet);
    hist1->Fit("fitFcn","R+");
    // Signal fit function
-   TF1 SIGfit("SIGfit","[0]*TMath::Gaus(x,[1],[2])",0,10);
+   TF1 SIGfit("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fMinXDisc, fMaxXDisc);
    SIGfit.SetParameter(0,fitFcn->GetParameter(2));
    SIGfit.SetParameter(1,fitFcn->GetParameter(3));
    SIGfit.SetParameter(2,fitFcn->GetParameter(4));
    // Background fit function
-   TF1 BGfit("BGfit","[0]+[1]*x",0,10);
+   TF1 BGfit("BGfit","[0]+[1]*x",fMinXDisc, fMaxXDisc);
    BGfit.SetParameter(0,fitFcn->GetParameter(0));
    BGfit.SetParameter(1,fitFcn->GetParameter(1));
    // Weight computation
@@ -423,48 +449,48 @@ void MyMainFrame::DoDraw() {
    //// Draw fit functions, SIG and SB regions
    hist1->Draw();
    // Patterned histograms
-    TH1* hist1_cln1 = (TH1*)hist1->Clone();
-    hist1_cln1->GetXaxis()->SetRangeUser(fLSBMin,fLSBMax);
-    hist1_cln1->SetFillColor(kAzure+7);
-    hist1_cln1->SetFillStyle(3354);
-    TH1* hist1_cln2 = (TH1*)hist1->Clone();
-    hist1_cln2->GetXaxis()->SetRangeUser(fRSBMin,fRSBMax);
-    hist1_cln2->SetFillColor(kAzure+7);
-    hist1_cln2->SetFillStyle(3354);
-    TH1* hist1_cln3 = (TH1*)hist1->Clone();
-    hist1_cln3->GetXaxis()->SetRangeUser(fSigMin,fSigMax);
-    hist1_cln3->SetFillColor(kOrange-3);
-    hist1_cln3->SetFillStyle(3354);
-    // Draw patterned histograms
-    hist1_cln1->DrawCopy("same");
-    hist1_cln2->DrawCopy("same");
-    hist1_cln3->DrawCopy("same");
-    // hist1
-    hist1->DrawCopy("same");
-    // Total fit function
-    fitFcn->DrawCopy("same");
-    fitFcn->SetLineColor(kViolet);
-    // Signal fit function
-    SIGfit.SetLineColor(kRed);
-    SIGfit.DrawCopy("same");
-    // Background fit function
-    BGfit.SetLineColor(kBlue);
-    BGfit.DrawCopy("same");
-    // Sideband regions
-    double sb_L_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fLSBMax))*0.50 + hist1->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) distance betwwen bin at fLSBMax and max y-axis coordiante
-    double sb_R_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fRSBMax))*0.50 + hist1->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) distance betwwen bin at fLSBMax and max y-axis coordiante
-    TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
-    sb_L_l->SetLineWidth(2);
-    sb_L_l->Draw();
-    TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
-    sb_L_u->SetLineWidth(2);
-    sb_L_u->Draw();
-    TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
-    sb_R_l->SetLineWidth(2);
-    sb_R_l->Draw();
-    TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
-    sb_R_u->SetLineWidth(2);
-    sb_R_u->Draw();
+   TH1* hist1_cln1 = (TH1*)hist1->Clone();
+   hist1_cln1->GetXaxis()->SetRangeUser(fLSBMin,fLSBMax);
+   hist1_cln1->SetFillColor(kAzure+7);
+   hist1_cln1->SetFillStyle(3354);
+   TH1* hist1_cln2 = (TH1*)hist1->Clone();
+   hist1_cln2->GetXaxis()->SetRangeUser(fRSBMin,fRSBMax);
+   hist1_cln2->SetFillColor(kAzure+7);
+   hist1_cln2->SetFillStyle(3354);
+   TH1* hist1_cln3 = (TH1*)hist1->Clone();
+   hist1_cln3->GetXaxis()->SetRangeUser(fSigMin,fSigMax);
+   hist1_cln3->SetFillColor(kOrange-3);
+   hist1_cln3->SetFillStyle(3354);
+   // Draw patterned histograms
+   hist1_cln1->DrawCopy("same");
+   hist1_cln2->DrawCopy("same");
+   hist1_cln3->DrawCopy("same");
+   // hist1
+   hist1->DrawCopy("same");
+   // Total fit function
+   fitFcn->DrawCopy("same");
+   fitFcn->SetLineColor(kViolet);
+   // Signal fit function
+   SIGfit.SetLineColor(kRed);
+   SIGfit.DrawCopy("same");
+   // Background fit function
+   BGfit.SetLineColor(kBlue);
+   BGfit.DrawCopy("same");
+   // Sideband regions
+   double sb_L_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fLSBMax))*0.50 + hist1->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
+   double sb_R_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fRSBMax))*0.50 + hist1->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
+   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
+   sb_L_l->SetLineWidth(2);
+   sb_L_l->Draw();
+   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
+   sb_L_u->SetLineWidth(2);
+   sb_L_u->Draw();
+   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
+   sb_R_l->SetLineWidth(2);
+   sb_R_l->Draw();
+   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
+   sb_R_u->SetLineWidth(2);
+   sb_R_u->Draw();
    hist1->SetMinimum(0);
 
    fCanvas->cd(2);
