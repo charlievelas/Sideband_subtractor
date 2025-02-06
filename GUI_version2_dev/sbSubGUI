@@ -49,8 +49,10 @@ private:
    // Control variable
    TGComboBox          *fComboBoxCont;  // Drop-down list for branch names for control variable
    TGNumberEntry       *fBinsEntryCont;  // Number of bins input
-   TGNumberEntry       *fMinXEntryCont;  // Minimum X input
-   TGNumberEntry       *fMaxXEntryCont;  // Maximum X input
+   TGNumberEntry       *fMinXEntryCont;  // Minimum X input for drawing
+   TGNumberEntry       *fMaxXEntryCont;  // Maximum X input for drawing
+   TGNumberEntry       *fSubMinInput;  // Minimum X input for subtraction
+   TGNumberEntry       *fSubMaxInput;  // Maximum X input for subtraction
    // Trees and files
    TFile               *fFile1;       // ROOT file pointer
    TTree               *fTree;       // TTree pointer
@@ -109,7 +111,7 @@ MyMainFrame::MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* file
    TGTextButton *exit = new TGTextButton(vframe, "&Exit", "gApplication->Terminate(0)");
    vframe->AddFrame(exit, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-   // Add a 3D horizontal line (separator) between the Exit button and the Discriminating Variable label
+   // Add a 3D horizontal line 
    TGHorizontal3DLine *hline1 = new TGHorizontal3DLine(vframe);
    hline1->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
    vframe->AddFrame(hline1, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
@@ -244,7 +246,7 @@ MyMainFrame::MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* file
 
    vframe->AddFrame(hRSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
 
-   // Add a 3D horizontal line (separator) between the Exit button and the Discriminating Variable label
+   // Add a 3D horizontal line 
    TGHorizontal3DLine *hline2 = new TGHorizontal3DLine(vframe);
    hline2->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
    vframe->AddFrame(hline2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
@@ -300,7 +302,36 @@ MyMainFrame::MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* file
 
    vframe->AddFrame(hInputFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
 
-   // Add a 3D horizontal line (separator) between the Exit button and the Discriminating Variable label
+   // Create a horizontal frame for the subtraction region inputs
+   TGHorizontalFrame *hSubLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *SubLabel = new TGLabel(hSubLabelFrame, "Subtraction range:");
+   hSubLabelFrame->AddFrame(SubLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hSubLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+
+   TGHorizontalFrame *hSubInputFrame = new TGHorizontalFrame(vframe, 200, 60);
+
+   // Subtraction min x label and input box
+   TGHorizontalFrame *SubMinXFrame = new TGHorizontalFrame(hSubInputFrame, 120, 60);
+   TGLabel *SubMinXLabel = new TGLabel(SubMinXFrame, "Min:");
+   SubMinXFrame->AddFrame(SubMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSubMinInput = new TGNumberEntry(SubMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSubMinInput->SetWidth(60);
+   SubMinXFrame->AddFrame(fSubMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSubInputFrame->AddFrame(SubMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Max x label and input box
+   TGHorizontalFrame *SubMaxXFrame = new TGHorizontalFrame(hSubInputFrame, 120, 60);
+   TGLabel *SubMaxXLabel = new TGLabel(SubMaxXFrame, "Max:");
+   SubMaxXFrame->AddFrame(SubMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSubMaxInput = new TGNumberEntry(SubMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSubMaxInput->SetWidth(60);
+   SubMaxXFrame->AddFrame(fSubMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSubInputFrame->AddFrame(SubMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hSubInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+
+
+   // Add a 3D horizontal line
    TGHorizontal3DLine *hline3 = new TGHorizontal3DLine(vframe);
    hline3->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
    vframe->AddFrame(hline3, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
