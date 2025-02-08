@@ -796,6 +796,14 @@ void MyMainFrame::DoFit() {
    sb_R_u->SetLineWidth(2);
    sb_R_u->Draw();
    histDisc->SetMinimum(0);
+   // Signal fit info box
+   TString SIGfit_str = Form("#splitline{Signal fit info}{#splitline{#mu: %.5g}{#sigma: %.5g}}", abs(fitFcn->GetParameter(3)), abs(fitFcn->GetParameter(4)));
+   TPaveText* SIGfit_txt = new TPaveText(.7,.8,.9,.9,"brNDC");
+   SIGfit_txt->SetFillColor(0);
+   SIGfit_txt->SetBorderSize(1);
+   SIGfit_txt->SetTextSize(0.025);
+   SIGfit_txt->AddText(SIGfit_str);
+   SIGfit_txt->DrawClone("Same");
    // Pad 2
    fCanvas->cd(2);
    gPad->Clear();
@@ -811,123 +819,6 @@ void MyMainFrame::DoFit() {
    histCont->GetXaxis()->SetRangeUser(fMinXCont,fMaxXCont);
    // Update the canvas to display the histograms
    fCanvas->Update();
-
-   
-
-/*/// OLD SITE 1 START
-
-   // Clear each pad before drawing new histograms
-   // Extended comment: The method below works because histograms being initliasied 
-   // and assigned for each branch on the tree rather than drawing the tree straight 
-   // to the canvas, this allows for interactivity of both graphs after they are plotted.
-   fCanvas->Clear();  // Clear the canvas to reset any changes
-   fCanvas->Divide(2, 1);  // Restore original pad layout (2 pads side-by-side)
-   
-   fCanvas->cd(1);
-   gPad->Clear();
-
-   // Defining and drawing first tree histogram
-   fTree->Draw(drawCommandDisc.Data());
-   TH1F *hist1 = (TH1F*)gDirectory->Get("hist1");
-   hist1->SetTitle(drawTitleDisc.Data());
-   hist1->SetStats(0);
-   fCanvas->cd(1);
-   // Sideband subtraction PART 1: Fitting and calculating weight
-   // Histograms
-   TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
-   TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
-   TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
-   TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
-   fTree->Draw(drawCommandSIG,SIGcond);
-   TH1F *histSIG = (TH1F*)gDirectory->Get("histSIG");
-   fTree->Draw(drawCommandBG,BGcond);
-   TH1F *histSB = (TH1F*)gDirectory->Get("histSB");
-   // Fit function
-   TF1 *fitFcn = new TF1("fitFcn",fitFunction,fFitMin,fFitMax,5);
-   double mean = (fFitMax-fFitMin)/2;
-   double std = mean/10;
-   fitFcn->SetParameters(1,1,1,mean,std);
-   fitFcn->SetLineColor(kViolet);
-   hist1->Fit("fitFcn","R+");
-   // Signal fit function
-   TF1 SIGfit("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fFitMin,fFitMax);
-   SIGfit.SetParameter(0,fitFcn->GetParameter(2));
-   SIGfit.SetParameter(1,fitFcn->GetParameter(3));
-   SIGfit.SetParameter(2,fitFcn->GetParameter(4));
-   // Background fit function
-   TF1 BGfit("BGfit","[0]+[1]*x",fFitMin,fFitMax);
-   BGfit.SetParameter(0,fitFcn->GetParameter(0));
-   BGfit.SetParameter(1,fitFcn->GetParameter(1));
-   // Weight computation
-   double SIG_Int = BGfit.Integral(fSigMin,fSigMax);
-   double LSB_Int = BGfit.Integral(fLSBMin,fLSBMax);
-   double RSB_Int = BGfit.Integral(fRSBMin,fRSBMax);
-   double sig_wgt = SIG_Int/(LSB_Int+RSB_Int);
-   //// Draw fit functions, SIG and SB regions
-   hist1->Draw();
-   // Patterned histograms
-   TH1* hist1_cln1 = (TH1*)hist1->Clone();
-   hist1_cln1->GetXaxis()->SetRangeUser(fLSBMin,fLSBMax);
-   hist1_cln1->SetFillColor(kAzure+7);
-   hist1_cln1->SetFillStyle(3354);
-   TH1* hist1_cln2 = (TH1*)hist1->Clone();
-   hist1_cln2->GetXaxis()->SetRangeUser(fRSBMin,fRSBMax);
-   hist1_cln2->SetFillColor(kAzure+7);
-   hist1_cln2->SetFillStyle(3354);
-   TH1* hist1_cln3 = (TH1*)hist1->Clone();
-   hist1_cln3->GetXaxis()->SetRangeUser(fSigMin,fSigMax);
-   hist1_cln3->SetFillColor(kOrange-3);
-   hist1_cln3->SetFillStyle(3354);
-   // Draw patterned histograms
-   hist1_cln1->DrawCopy("same");
-   hist1_cln2->DrawCopy("same");
-   hist1_cln3->DrawCopy("same");
-   // hist1
-   hist1->DrawCopy("same");
-   // Total fit function
-   fitFcn->DrawCopy("same");
-   fitFcn->SetLineColor(kViolet);
-   // Signal fit function
-   SIGfit.SetLineColor(kRed);
-   SIGfit.DrawCopy("same");
-   // Background fit function
-   BGfit.SetLineColor(kBlue);
-   BGfit.DrawCopy("same");
-   // Sideband regions
-   double sb_L_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fLSBMax))*0.50 + hist1->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   double sb_R_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fRSBMax))*0.50 + hist1->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
-   sb_L_l->SetLineWidth(2);
-   sb_L_l->Draw();
-   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
-   sb_L_u->SetLineWidth(2);
-   sb_L_u->Draw();
-   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
-   sb_R_l->SetLineWidth(2);
-   sb_R_l->Draw();
-   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
-   sb_R_u->SetLineWidth(2);
-   sb_R_u->Draw();
-   hist1->SetMinimum(0);
-
-   fCanvas->cd(2);
-   gPad->Clear();
-
-   // Defining and drawing second tree histogram
-   fTree->Draw(drawCommandCont.Data());
-   TH1F *hist2 = (TH1F*)gDirectory->Get("hist2");
-   histSIG->SetTitle(drawTitleCont.Data());
-   fCanvas->cd(2);
-   // Sideband subtraction PART 2: Subtraction
-   histSIG->Add(histSB,-sig_wgt);
-   histSIG->Draw();
-   // Draw histogram
-   //hist2->Draw();
-
-   // Update the canvas to display the histograms
-   fCanvas->Update();
-
-*//// OLD SITE 2 END
 
 }
 
@@ -975,25 +866,6 @@ void MyMainFrame::DoSub() {
    Double_t fMaxXCont = fMaxXEntryCont->GetNumber();
    Double_t fSubMin = fSubMinInput->GetNumber();
    Double_t fSubMax = fSubMaxInput->GetNumber();
-
-   cout << "DoSub inputs" << endl;
-   cout << "fMinXDisc: " << fMinXDisc << endl;
-   cout << "fMaxXDisc: " << fMaxXDisc << endl;
-   cout << "fFitMin: " << fFitMin << endl;
-   cout << "fFitMax: " << fFitMax << endl;
-   cout << "fSigMinInput: " << fSigMinInput << endl;
-   cout << "fSigMaxInput: " << fSigMaxInput << endl;
-   cout << "fFitMinInput: " << fFitMinInput << endl;
-   cout << "fFitMaxInput: " << fFitMaxInput << endl;
-   cout << "fLSBMinInput: " << fLSBMinInput << endl;
-   cout << "fLSBMaxInput: " << fLSBMaxInput << endl;
-   cout << "fRSBMinInput: " << fRSBMinInput << endl;
-   cout << "fRSBMaxInput: " << fRSBMaxInput << endl;
-   cout << "fMinXCont: " << fMinXCont << endl;
-   cout << "fMaxXCont: " << fMaxXCont << endl;
-   cout << "fSubMin: " << fSubMin << endl;
-   cout << "fSubMax: " << fSubMax << endl;
-
 
    // Introducting autofit, a function that fits the discriminating variable using the total (poly+gauss) fit function
    //                       for a given discriminating variable range (only requirement)
@@ -1085,24 +957,18 @@ void MyMainFrame::DoSub() {
    std::cout << "Control variable: " << drawCommandCont.Data() << std::endl;
 
    //// Fitting and sideband subtraction
-   // Define histograms
-   fTree->Draw(drawCommandDisc.Data());
-   TH1F *histDisc = (TH1F*)gDirectory->Get("hist1");
-   fTree->Draw(drawCommandCont.Data());
-   TH1F *histCont = (TH1F*)gDirectory->Get("hist2");
-   TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
-   TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
-   TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
-   TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
-   fTree->Draw(drawCommandSIG,SIGcond);
-   TH1F *histSIG = (TH1F*)gDirectory->Get("histSIG");
-   fTree->Draw(drawCommandBG,BGcond);
-   TH1F *histSB = (TH1F*)gDirectory->Get("histSB");
    // Define fit functions and weight
    TF1 *fitFcn = nullptr;
    TF1 *SIGfit = nullptr;
    TF1 *BGfit = nullptr;
    double sig_wgt;
+   // Define histograms
+   fTree->Draw(drawCommandDisc.Data());
+   TH1F *histDisc = (TH1F*)gDirectory->Get("hist1");
+   fTree->Draw(drawCommandCont.Data());
+   TH1F *histCont = (TH1F*)gDirectory->Get("hist2");
+   TH1F *histSIG = nullptr;
+   TH1F *histSB = nullptr;
    // Autofit (Welcome!)
    if (autofit_check==1){
       cout << "Autofit engaged" << endl;
@@ -1158,6 +1024,23 @@ void MyMainFrame::DoSub() {
          Error("DoSub", "Error: Sideband-signal overlap or sidebands not around signal!!!!!.");
          return;
       }
+      fSigMinInput->SetNumber(fSigMin);
+      fSigMaxInput->SetNumber(fSigMax);
+      fFitMinInput->SetNumber(fFitMin);
+      fFitMaxInput->SetNumber(fFitMax);
+      fLSBMinInput->SetNumber(fLSBMin);
+      fLSBMaxInput->SetNumber(fLSBMax);
+      fRSBMinInput->SetNumber(fRSBMin);
+      fRSBMaxInput->SetNumber(fRSBMax);
+      // Define histograms
+      TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
+      TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
+      TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
+      TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
+      fTree->Draw(drawCommandSIG,SIGcond);
+      histSIG = (TH1F*)gDirectory->Get("histSIG");
+      fTree->Draw(drawCommandBG,BGcond);
+      histSB = (TH1F*)gDirectory->Get("histSB");
       // Weight computation
       double SIG_Int = BGfit->Integral(fSigMin,fSigMax);
       double LSB_Int = BGfit->Integral(fLSBMin,fLSBMax);
@@ -1187,6 +1070,15 @@ void MyMainFrame::DoSub() {
       BGfit = new TF1("BGfit","[0]+[1]*x",fFitMin,fFitMax);
       BGfit->SetParameter(0,fitFcn->GetParameter(0));
       BGfit->SetParameter(1,fitFcn->GetParameter(1));
+      // Define histograms
+      TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
+      TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
+      TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
+      TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
+      fTree->Draw(drawCommandSIG,SIGcond);
+      histSIG = (TH1F*)gDirectory->Get("histSIG");
+      fTree->Draw(drawCommandBG,BGcond);
+      histSB = (TH1F*)gDirectory->Get("histSB");
       // Weight computation
       double SIG_Int = BGfit->Integral(fSigMin,fSigMax);
       double LSB_Int = BGfit->Integral(fLSBMin,fLSBMax);
@@ -1248,6 +1140,14 @@ void MyMainFrame::DoSub() {
    sb_R_u->SetLineWidth(2);
    sb_R_u->Draw();
    histDisc->SetMinimum(0);
+   // Signal fit info box
+   TString SIGfit_str = Form("#splitline{Signal fit info}{#splitline{#mu: %.5g}{#sigma: %.5g}}", abs(fitFcn->GetParameter(3)), abs(fitFcn->GetParameter(4)));
+   TPaveText* SIGfit_txt = new TPaveText(.7,.8,.9,.9,"brNDC");
+   SIGfit_txt->SetFillColor(0);
+   SIGfit_txt->SetBorderSize(1);
+   SIGfit_txt->SetTextSize(0.025);
+   SIGfit_txt->AddText(SIGfit_str);
+   SIGfit_txt->DrawClone("Same");
    // Pad 2
    fCanvas->cd(2);
    gPad->Clear();
@@ -1257,190 +1157,13 @@ void MyMainFrame::DoSub() {
    histSIG->Add(histSB,-sig_wgt);
    histSIG->Draw("hist");
    histSIG->GetXaxis()->SetRangeUser(fMinXCont,fMaxXCont);
+   histSIG->SetTitle(drawTitleCont.Data());
    gPad->Modified();
    gPad->Update();
    // Update the canvas to display the histograms
    fCanvas->Update();
 
 }
-
-
-/*/// OLD SITE 2 START
-void MyMainFrame::DoSub() {
-
-   // Retrieve the selected branch from the first combo box (branch to draw)
-   if (fSelectedBranchDisc == -1) {
-      Error("DoDraw", "Error: No discriminating variable selected.");
-      return;
-   }
-   if (fSelectedBranchCont == -1) {
-      Error("DoDraw", "Error: No control variable selected.");
-      return;
-   }
-   
-   // Get the branch corresponding to the selected option
-   TBranch *branchDisc = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchDisc - 1); // fSelectedBranchDisc is 1-based
-   if (!branchDisc) {
-      Error("DoDraw", "Invalid selection.");
-      return;
-   }
-   string branchNameDisc = branchDisc->GetName();   
-   TBranch *branchCont = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchCont - 1); // fSelectedBranchCont is 1-based
-   if (!branchCont) {
-      Error("DoDraw", "Invalid selection.");
-      return;
-   }
-   string branchNameCont = branchCont->GetName();
-
-   // Retrieve the number of bins, min and max X values from the input boxes
-   Int_t fBinsDisc = fBinsEntryDisc->GetNumber();
-   Double_t fMinXDisc = fMinXEntryDisc->GetNumber();
-   Double_t fMaxXDisc = fMaxXEntryDisc->GetNumber();
-   Double_t fFitMin = fFitMinInput->GetNumber();
-   Double_t fFitMax = fFitMaxInput->GetNumber();
-   Double_t fSigMin = fSigMinInput->GetNumber();
-   Double_t fSigMax = fSigMaxInput->GetNumber();
-   Double_t fLSBMin = fLSBMinInput->GetNumber();
-   Double_t fLSBMax = fLSBMaxInput->GetNumber();
-   Double_t fRSBMin = fRSBMinInput->GetNumber();
-   Double_t fRSBMax = fRSBMaxInput->GetNumber();
-
-   Int_t fBinsCont = fBinsEntryCont->GetNumber();
-   Double_t fMinXCont = fMinXEntryCont->GetNumber();
-   Double_t fMaxXCont = fMaxXEntryCont->GetNumber();
-   Double_t fSubMin = fSubMinInput->GetNumber();
-   Double_t fSubMax = fSubMaxInput->GetNumber();
-
-   // Draw strings
-   TString drawCommandDisc = "";
-   TString drawTitleDisc = "Discriminating variable: ";
-
-   TString drawCommandCont = "";
-   TString drawTitleCont = "Control variable: ";
-
-   drawCommandDisc = TString::Format("%s>>hist1(%d,%f,%f)", branchNameDisc.c_str(), fBinsDisc, fMinXDisc, fMaxXDisc);
-   drawTitleDisc += branchNameDisc.c_str();
-
-   drawCommandCont = TString::Format("%s>>hist2(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont);
-   drawTitleCont += branchNameCont.c_str();
-
-   // Output print
-   std::cout << "////////  Drawn with following  ////////" << std::endl;
-   std::cout << "Discriminating variable: " << drawCommandDisc.Data() << std::endl;
-   std::cout << "Control variable: " << drawCommandCont.Data() << std::endl;
-
-   // Clear each pad before drawing new histograms
-   // Extended comment: The method below works because histograms being initliasied 
-   // and assigned for each branch on the tree rather than drawing the tree straight 
-   // to the canvas, this allows for interactivity of both graphs after they are plotted.
-   fCanvas->Clear();  // Clear the canvas to reset any changes
-   fCanvas->Divide(2, 1);  // Restore original pad layout (2 pads side-by-side)
-   
-   fCanvas->cd(1);
-   gPad->Clear();
-
-   // Defining and drawing first tree histogram
-   fTree->Draw(drawCommandDisc.Data());
-   TH1F *hist1 = (TH1F*)gDirectory->Get("hist1");
-   hist1->SetTitle(drawTitleDisc.Data());
-   hist1->SetStats(0);
-   fCanvas->cd(1);
-   // Sideband subtraction PART 1: Fitting and calculating weight
-   // Histograms
-   TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
-   TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
-   TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
-   TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
-   fTree->Draw(drawCommandSIG,SIGcond);
-   TH1F *histSIG = (TH1F*)gDirectory->Get("histSIG");
-   fTree->Draw(drawCommandBG,BGcond);
-   TH1F *histSB = (TH1F*)gDirectory->Get("histSB");
-   // Fit function
-   TF1 *fitFcn = new TF1("fitFcn",fitFunction,fFitMin,fFitMax,5);
-   double mean = (fFitMax-fFitMin)/2;
-   double std = mean/10;
-   fitFcn->SetParameters(1,1,1,mean,std);
-   fitFcn->SetLineColor(kViolet);
-   hist1->Fit("fitFcn","R+");
-   // Signal fit function
-   TF1 SIGfit("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fFitMin,fFitMax);
-   SIGfit.SetParameter(0,fitFcn->GetParameter(2));
-   SIGfit.SetParameter(1,fitFcn->GetParameter(3));
-   SIGfit.SetParameter(2,fitFcn->GetParameter(4));
-   // Background fit function
-   TF1 BGfit("BGfit","[0]+[1]*x",fFitMin,fFitMax);
-   BGfit.SetParameter(0,fitFcn->GetParameter(0));
-   BGfit.SetParameter(1,fitFcn->GetParameter(1));
-   // Weight computation
-   double SIG_Int = BGfit.Integral(fSigMin,fSigMax);
-   double LSB_Int = BGfit.Integral(fLSBMin,fLSBMax);
-   double RSB_Int = BGfit.Integral(fRSBMin,fRSBMax);
-   double sig_wgt = SIG_Int/(LSB_Int+RSB_Int);
-   //// Draw fit functions, SIG and SB regions
-   hist1->Draw();
-   // Patterned histograms
-   TH1* hist1_cln1 = (TH1*)hist1->Clone();
-   hist1_cln1->GetXaxis()->SetRangeUser(fLSBMin,fLSBMax);
-   hist1_cln1->SetFillColor(kAzure+7);
-   hist1_cln1->SetFillStyle(3354);
-   TH1* hist1_cln2 = (TH1*)hist1->Clone();
-   hist1_cln2->GetXaxis()->SetRangeUser(fRSBMin,fRSBMax);
-   hist1_cln2->SetFillColor(kAzure+7);
-   hist1_cln2->SetFillStyle(3354);
-   TH1* hist1_cln3 = (TH1*)hist1->Clone();
-   hist1_cln3->GetXaxis()->SetRangeUser(fSigMin,fSigMax);
-   hist1_cln3->SetFillColor(kOrange-3);
-   hist1_cln3->SetFillStyle(3354);
-   // Draw patterned histograms
-   hist1_cln1->DrawCopy("same");
-   hist1_cln2->DrawCopy("same");
-   hist1_cln3->DrawCopy("same");
-   // hist1
-   hist1->DrawCopy("same");
-   // Total fit function
-   fitFcn->DrawCopy("same");
-   fitFcn->SetLineColor(kViolet);
-   // Signal fit function
-   SIGfit.SetLineColor(kRed);
-   SIGfit.DrawCopy("same");
-   // Background fit function
-   BGfit.SetLineColor(kBlue);
-   BGfit.DrawCopy("same");
-   // Sideband regions
-   double sb_L_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fLSBMax))*0.50 + hist1->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   double sb_R_y = (hist1->GetBinContent(hist1->GetMaximumBin())-hist1->GetBinContent(fRSBMax))*0.50 + hist1->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
-   sb_L_l->SetLineWidth(2);
-   sb_L_l->Draw();
-   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
-   sb_L_u->SetLineWidth(2);
-   sb_L_u->Draw();
-   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
-   sb_R_l->SetLineWidth(2);
-   sb_R_l->Draw();
-   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
-   sb_R_u->SetLineWidth(2);
-   sb_R_u->Draw();
-   hist1->SetMinimum(0);
-
-   fCanvas->cd(2);
-   gPad->Clear();
-
-   // Defining and drawing second tree histogram
-   fTree->Draw(drawCommandCont.Data());
-   TH1F *hist2 = (TH1F*)gDirectory->Get("hist2");
-   histSIG->SetTitle(drawTitleCont.Data());
-   fCanvas->cd(2);
-   // Sideband subtraction PART 2: Subtraction
-   histSIG->Add(histSB,-sig_wgt);
-   histSIG->Draw();
-   // Draw histogram
-   //hist2->Draw();
-
-   // Update the canvas to display the histograms
-   fCanvas->Update();
-}
-*//// OLD SITE 2 START
 
 void MyMainFrame::OnSelectDisc(Int_t id) {
    fSelectedBranchDisc = id;
