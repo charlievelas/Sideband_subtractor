@@ -1,0 +1,710 @@
+// Fit functions
+// Quadratic background function
+double Background(double *x, double *par) {
+    return par[0] + par[1]*x[0] + par[2]*x[0]*x[0] + par[3]*x[0]*x[0]*x[0] + par[4]*x[0]*x[0]*x[0]*x[0];
+}
+// Gauss Peak function
+double GaussPeak(double *x, double *par) {
+    return par[0]*TMath::Gaus(x[0], par[1], par[2]);
+}
+// Sum of background and peak function
+double fitFunction(double *x, double *par) {
+    return Background(x,par) + GaussPeak(x,&par[5]);
+    //&par[5] is where the guass parameters start in the length-8 'par' array containing the parameters for the background and the peak
+}
+
+// FT electron energy correction
+TLorentzVector Correct_Electron(TLorentzVector x){
+Double_t E_new, E_new_further_corrected, Px_el, Py_el,
+Pz_el;
+TLorentzVector el_new;
+E_new = x.E() + 0.085643 - 0.0288063*x.E() +
+0.00894691*pow(x.E(),2) - 0.000725449*pow(x.E(),3);
+Px_el = E_new*(x.Px()/x.Rho());
+Py_el = E_new*(x.Py()/x.Rho());
+Pz_el = E_new*(x.Pz()/x.Rho());
+el_new.SetXYZM(Px_el, Py_el, Pz_el, 0.000511);
+return el_new;
+}
+
+void BG_sub_TCC(string infile_1, string infile_2){
+
+//// Open uncuted tree and make cuts
+
+// Open file
+
+const char *infile_name_1 = infile_1.c_str();
+
+const char *infile_name_2 = infile_2.c_str();
+
+TFile f_1(infile_name_1);
+
+TFile f_2(infile_name_2);
+
+// Get trees
+TTree *tree_1 = (TTree*)f_1.Get(f_1.GetListOfKeys()->At(0)->GetName());
+
+TTree *tree_2 = (TTree*)f_2.Get(f_2.GetListOfKeys()->At(0)->GetName());
+
+// Print tree and branches
+
+
+// Output file name
+string outfile = "Histograms_BG_sub_TCC_plots.root";
+const char *outfile_name = outfile.c_str();
+
+// root file
+TFile file_r(outfile_name, "recreate");
+
+// Set branch addresses
+double epKKelPx_1=0;
+double epKKelPy_1=0;
+double epKKelPz_1=0;
+double epKKproPx_1=0;
+double epKKproPy_1=0;
+double epKKproPz_1=0;
+double epKKkpPx_1=0;
+double epKKkpPy_1=0;
+double epKKkpPz_1=0;
+double epKKkmPx_1=0;
+double epKKkmPy_1=0;
+double epKKkmPz_1=0;
+double epKKelPMag_1=0;
+double epKKproPMag_1=0;
+double epKKkpPMag_1=0;
+double epKKkmPMag_1=0;
+double epKKelVx_1=0;
+double epKKelVy_1=0;
+double epKKelVz_1=0;
+double epKKproVx_1=0;
+double epKKproVy_1=0;
+double epKKproVz_1=0;
+double epKKkpVx_1=0;
+double epKKkpVy_1=0;
+double epKKkpVz_1=0;
+double epKKkmVx_1=0;
+double epKKkmVy_1=0;
+double epKKkmVz_1=0;
+double epKKkpMass_1=0;
+double epKKkmMass_1=0;
+double epKKMissMass_1=0;
+double epKKMissMass2_1=0;
+double epKKInvMass_KK_1=0;
+double epKKelTheta_1=0;
+double epKKproTheta_1=0;
+double epKKkpTheta_1=0;
+double epKKkmTheta_1=0;
+double epKKelPhi_1=0;
+double epKKproPhi_1=0;
+double epKKkpPhi_1=0;
+double epKKkmPhi_1=0;
+double epKKt1Mag_1=0;
+double epKKt2Mag_1=0;
+double epKKW_1=0;
+double epKKQ2_1=0;
+double epKKPol_1=0;
+double epKKEgamma_1=0;
+double epKKMesonCosThGJ_1=0;
+double epKKMesonPhiGJ_1=0;
+
+tree_1->SetBranchAddress("epKKelPx", &epKKelPx_1);
+tree_1->SetBranchAddress("epKKelPy", &epKKelPy_1);
+tree_1->SetBranchAddress("epKKelPz", &epKKelPz_1);
+tree_1->SetBranchAddress("epKKproPx", &epKKproPx_1);
+tree_1->SetBranchAddress("epKKproPy", &epKKproPy_1);
+tree_1->SetBranchAddress("epKKproPz", &epKKproPz_1);
+tree_1->SetBranchAddress("epKKkpPx", &epKKkpPx_1);
+tree_1->SetBranchAddress("epKKkpPy", &epKKkpPy_1);
+tree_1->SetBranchAddress("epKKkpPz", &epKKkpPz_1);
+tree_1->SetBranchAddress("epKKkmPx", &epKKkmPx_1);
+tree_1->SetBranchAddress("epKKkmPy", &epKKkmPy_1);
+tree_1->SetBranchAddress("epKKkmPz", &epKKkmPz_1);
+tree_1->SetBranchAddress("epKKelPMag", &epKKelPMag_1);
+tree_1->SetBranchAddress("epKKproPMag", &epKKproPMag_1);
+tree_1->SetBranchAddress("epKKkpPMag", &epKKkpPMag_1);
+tree_1->SetBranchAddress("epKKkmPMag", &epKKkmPMag_1);
+tree_1->SetBranchAddress("epKKelVx", &epKKelVx_1);
+tree_1->SetBranchAddress("epKKelVy", &epKKelVy_1);
+tree_1->SetBranchAddress("epKKelVz", &epKKelVz_1);
+tree_1->SetBranchAddress("epKKproVx", &epKKproVx_1);
+tree_1->SetBranchAddress("epKKproVy", &epKKproVy_1);
+tree_1->SetBranchAddress("epKKproVz", &epKKproVz_1);
+tree_1->SetBranchAddress("epKKkpVx", &epKKkpVx_1);
+tree_1->SetBranchAddress("epKKkpVy", &epKKkpVy_1);
+tree_1->SetBranchAddress("epKKkpVz", &epKKkpVz_1);
+tree_1->SetBranchAddress("epKKkmVx", &epKKkmVx_1);
+tree_1->SetBranchAddress("epKKkmVy", &epKKkmVy_1);
+tree_1->SetBranchAddress("epKKkmVz", &epKKkmVz_1);
+tree_1->SetBranchAddress("epKKMissMass", &epKKMissMass_1);
+tree_1->SetBranchAddress("epKKMissMass2", &epKKMissMass2_1);
+tree_1->SetBranchAddress("epKKInvMass_KK", &epKKInvMass_KK_1);
+tree_1->SetBranchAddress("epKKelTheta", &epKKelTheta_1);
+tree_1->SetBranchAddress("epKKproTheta", &epKKproTheta_1);
+tree_1->SetBranchAddress("epKKkpTheta", &epKKkpTheta_1);
+tree_1->SetBranchAddress("epKKkmTheta", &epKKkmTheta_1);
+tree_1->SetBranchAddress("epKKt1Mag", &epKKt1Mag_1);
+tree_1->SetBranchAddress("epKKt2Mag", &epKKt2Mag_1);
+tree_1->SetBranchAddress("epKKW", &epKKW_1);
+tree_1->SetBranchAddress("epKKQ2", &epKKQ2_1);
+tree_1->SetBranchAddress("epKKPol", &epKKPol_1);
+tree_1->SetBranchAddress("epKKEgamma", &epKKEgamma_1);
+tree_1->SetBranchAddress("epKKMesonCosThGJ", &epKKMesonCosThGJ_1);
+tree_1->SetBranchAddress("epKKMesonPhiGJ", &epKKMesonPhiGJ_1);
+
+double epKKelPx_2=0;
+double epKKelPy_2=0;
+double epKKelPz_2=0;
+double epKKproPx_2=0;
+double epKKproPy_2=0;
+double epKKproPz_2=0;
+double epKKkpPx_2=0;
+double epKKkpPy_2=0;
+double epKKkpPz_2=0;
+double epKKkmPx_2=0;
+double epKKkmPy_2=0;
+double epKKkmPz_2=0;
+double epKKelPMag_2=0;
+double epKKproPMag_2=0;
+double epKKkpPMag_2=0;
+double epKKkmPMag_2=0;
+double epKKelVx_2=0;
+double epKKelVy_2=0;
+double epKKelVz_2=0;
+double epKKproVx_2=0;
+double epKKproVy_2=0;
+double epKKproVz_2=0;
+double epKKkpVx_2=0;
+double epKKkpVy_2=0;
+double epKKkpVz_2=0;
+double epKKkmVx_2=0;
+double epKKkmVy_2=0;
+double epKKkmVz_2=0;
+double epKKkpMass_2=0;
+double epKKkmMass_2=0;
+double epKKMissMass_2=0;
+double epKKMissMass2_2=0;
+double epKKInvMass_KK_2=0;
+double epKKelTheta_2=0;
+double epKKproTheta_2=0;
+double epKKkpTheta_2=0;
+double epKKkmTheta_2=0;
+double epKKelPhi_2=0;
+double epKKproPhi_2=0;
+double epKKkpPhi_2=0;
+double epKKkmPhi_2=0;
+double epKKt1Mag_2=0;
+double epKKt2Mag_2=0;
+double epKKW_2=0;
+double epKKQ2_2=0;
+double epKKPol_2=0;
+double epKKEgamma_2=0;
+double epKKMesonCosThGJ_2=0;
+double epKKMesonPhiGJ_2=0;
+
+tree_2->SetBranchAddress("epKKelPx", &epKKelPx_2);
+tree_2->SetBranchAddress("epKKelPy", &epKKelPy_2);
+tree_2->SetBranchAddress("epKKelPz", &epKKelPz_2);
+tree_2->SetBranchAddress("epKKproPx", &epKKproPx_2);
+tree_2->SetBranchAddress("epKKproPy", &epKKproPy_2);
+tree_2->SetBranchAddress("epKKproPz", &epKKproPz_2);
+tree_2->SetBranchAddress("epKKkpPx", &epKKkpPx_2);
+tree_2->SetBranchAddress("epKKkpPy", &epKKkpPy_2);
+tree_2->SetBranchAddress("epKKkpPz", &epKKkpPz_2);
+tree_2->SetBranchAddress("epKKkmPx", &epKKkmPx_2);
+tree_2->SetBranchAddress("epKKkmPy", &epKKkmPy_2);
+tree_2->SetBranchAddress("epKKkmPz", &epKKkmPz_2);
+//tree_2->SetBranchAddress("epKKelPMag", &epKKelPMag_2);
+//tree_2->SetBranchAddress("epKKproPMag", &epKKproPMag_2);
+//tree_2->SetBranchAddress("epKKkpPMag", &epKKkpPMag_2);
+//tree_2->SetBranchAddress("epKKkmPMag", &epKKkmPMag_2);
+tree_2->SetBranchAddress("epKKelVx", &epKKelVx_2);
+tree_2->SetBranchAddress("epKKelVy", &epKKelVy_2);
+tree_2->SetBranchAddress("epKKelVz", &epKKelVz_2);
+tree_2->SetBranchAddress("epKKproVx", &epKKproVx_2);
+tree_2->SetBranchAddress("epKKproVy", &epKKproVy_2);
+tree_2->SetBranchAddress("epKKproVz", &epKKproVz_2);
+tree_2->SetBranchAddress("epKKkpVx", &epKKkpVx_2);
+tree_2->SetBranchAddress("epKKkpVy", &epKKkpVy_2);
+tree_2->SetBranchAddress("epKKkpVz", &epKKkpVz_2);
+tree_2->SetBranchAddress("epKKkmVx", &epKKkmVx_2);
+tree_2->SetBranchAddress("epKKkmVy", &epKKkmVy_2);
+tree_2->SetBranchAddress("epKKkmVz", &epKKkmVz_2);
+tree_2->SetBranchAddress("epKKMissMass", &epKKMissMass_2);
+tree_2->SetBranchAddress("epKKMissMass2", &epKKMissMass2_2);
+tree_2->SetBranchAddress("epKKInvMass_KK", &epKKInvMass_KK_2);
+tree_2->SetBranchAddress("epKKelTheta", &epKKelTheta_2);
+tree_2->SetBranchAddress("epKKproTheta", &epKKproTheta_2);
+tree_2->SetBranchAddress("epKKkpTheta", &epKKkpTheta_2);
+tree_2->SetBranchAddress("epKKkmTheta", &epKKkmTheta_2);
+tree_2->SetBranchAddress("epKKt1Mag", &epKKt1Mag_2);
+tree_2->SetBranchAddress("epKKt2Mag", &epKKt2Mag_2);
+tree_2->SetBranchAddress("epKKW", &epKKW_2);
+tree_2->SetBranchAddress("epKKQ2", &epKKQ2_2);
+tree_2->SetBranchAddress("epKKPol", &epKKPol_2);
+tree_2->SetBranchAddress("epKKEgamma", &epKKEgamma_2);
+tree_2->SetBranchAddress("epKKMesonCosThGJ", &epKKMesonCosThGJ_2);
+tree_2->SetBranchAddress("epKKMesonPhiGJ", &epKKMesonPhiGJ_2);
+
+// TLorentzVectors
+TLorentzVector target_LV;
+target_LV.SetXYZM(0,0,0,0.938272);
+TLorentzVector beam_LV;
+beam_LV.SetXYZM(0,0,10.2,0.000511);
+
+// Simulated data histograms
+// Missing mass histograms
+TH1D *hist_SD_MM_1a = new TH1D("hist_SD_MM_1a", "|MM(eK^{+}K^{-})| - simulated data",100,0.6,1.25);
+hist_SD_MM_1a->GetXaxis()->SetTitle("|MM(eK^{+}K^{-})| (GeV)");
+TH1D *hist_SD_MM_3a = new TH1D("hist_SD_MM_3a", "|MM(epK^{-})| - simulated data",100,0.1,0.9);
+hist_SD_MM_3a->GetXaxis()->SetTitle("|MM(epK^{-})| (GeV)");
+TH1D *hist_SD_MM_4a = new TH1D("hist_SD_MM_4a", "|MM(epK^{+})| - simulated data",100,0.1,0.9);
+hist_SD_MM_4a->GetXaxis()->SetTitle("|MM(epK^{+})| (GeV)");
+// Missing mass histograms - cut method
+// Cut 3 - histograms
+TH1D *hist_SD_MM_cut_3c_2 = new TH1D("hist_SD_MM_cut_3c_2", "Beam-based t distribution: cut |MM(eKK)|<3#sigma, |MM(epK^{-})|<3#sigma and |MM(epK^{+})|<3#sigma - SD",200,-4,0);
+hist_SD_MM_cut_3c_2->GetXaxis()->SetTitle("Beam-based t");
+
+// Experimental data histograms
+// Missing mass histograms
+TH1D *hist_ED_MM_1a = new TH1D("hist_ED_MM_1a", "|MM(eK^{+}K^{-})| - experimental data",100,0.6,1.25);
+hist_ED_MM_1a->GetXaxis()->SetTitle("|MM(eK^{+}K^{-})| (GeV)");
+TH1D *hist_ED_MM_2a = new TH1D("hist_ED_MM_2a", "|MM(eK^{+}K^{-})| - experimental data",100,0.6,1.25);
+hist_ED_MM_2a->GetXaxis()->SetTitle("|MM(eK^{+}K^{-})| (GeV)");
+TH1D *hist_ED_MM_3a = new TH1D("hist_ED_MM_3a", "|MM(epK^{-})| - experimental data",100,0.1,0.9);
+hist_ED_MM_3a->GetXaxis()->SetTitle("|MM(epK^{-})| (GeV)");
+TH1D *hist_ED_MM_4a = new TH1D("hist_ED_MM_4a", "|MM(epK^{+})| - experimental data",100,0.1,0.9);
+hist_ED_MM_4a->GetXaxis()->SetTitle("|MM(epK^{+})| (GeV)");
+// Missing mass histograms - background removal method three
+TH1D *hist_ED_MM_m3_0a = new TH1D("hist_ED_MM_m3_0a", "|MM(eK^{+}K^{-})| - ED",100,0.5,1.35);
+hist_ED_MM_m3_0a->GetXaxis()->SetTitle("|MM(eK^{+}K^{-})| (GeV)");
+TH1D *hist_ED_MM_m3_1a = new TH1D("hist_ED_MM_m3_1a", "|MM(epK^{-})| of events in region A - ED",100,0.1,0.9);
+hist_ED_MM_m3_1a->GetXaxis()->SetTitle("|MM(epK^{-})| (GeV)");
+TH1D *hist_ED_MM_m3_2a = new TH1D("hist_ED_MM_m3_2a", "|MM(epK^{-})| of events in region B - ED",100,0.1,0.9);
+hist_ED_MM_m3_2a->GetXaxis()->SetTitle("|MM(epK^{-})| (GeV)");
+TH1D *hist_ED_MM_m3_3a = new TH1D("hist_ED_MM_m3_3a", "|MM(epK^{-})| of events in region C - ED",100,0.1,0.9);
+hist_ED_MM_m3_3a->GetXaxis()->SetTitle("|MM(epK^{-})| (GeV)");
+TH1D *hist_ED_MM_m3_4a = new TH1D("hist_ED_MM_m3_4a", "|MM(epK^{-})| true signal - ED",100,0.1,0.9);
+hist_ED_MM_m3_4a->GetXaxis()->SetTitle("|MM(epK^{-})| (GeV)");
+// Missing mass histograms - background removal comparisions
+TH2D *hist_ED_MM_comp_1a = new TH2D("hist_ED_MM_comp_1a", "Missing mass distribution of eK^{+}K^{-} and epK^{-} events - ED;|MM(eK^{+}K^{-})|;|MM(epK^{-})|",100,0,2,100,0,2);
+// Missing mass histograms - cut method
+// Cut 0 - histograms
+TH1D *hist_ED_MM_cut_0c = new TH1D("hist_ED_MM_cut_0c", "MM^{2}(epKK) no cuts - ED",200,-0.1,0.1);
+hist_ED_MM_cut_0c->GetXaxis()->SetTitle("MM^{2}(epKK) (GeV)");
+// Cut 1 - histograms
+TH1D *hist_ED_MM_cut_1a = new TH1D("hist_ED_MM_cut_1a", "MM(epK^{-}): cut |MM(eKK)|<3#sigma - ED",100,0.1,0.9);
+hist_ED_MM_cut_1a->GetXaxis()->SetTitle("MM(epK^{-}) (GeV)");
+TH1D *hist_ED_MM_cut_1b = new TH1D("hist_ED_MM_cut_1b", "MM(epK^{+}): cut |MM(eKK)|<3#sigma - ED",100,0.1,0.9);
+hist_ED_MM_cut_1b->GetXaxis()->SetTitle("MM(epK^{+}) (GeV)");
+TH1D *hist_ED_MM_cut_1c = new TH1D("hist_ED_MM_cut_1c", "MM(epKK)^{2}: cut |MM(eKK)|<3#sigma - ED",200,-0.1,0.1);
+hist_ED_MM_cut_1c->GetXaxis()->SetTitle("MM^{2}(epKK) (GeV)");
+// Cut 2 - histograms
+TH1D *hist_ED_MM_cut_2b = new TH1D("hist_ED_MM_cut_2b", "MM(epK^{+}): cut |MM(eKK)|<3#sigma and |MM(epK^{-})|<3#sigma - ED",100,0,1);
+hist_ED_MM_cut_2b->GetXaxis()->SetTitle("MM(epK^{+}) (GeV)");
+TH1D *hist_ED_MM_cut_2c = new TH1D("hist_ED_MM_cut_2c", "MM^{2}(epKK): cut |MM(eKK)|<3#sigma and |MM(epK^{-})|<3#sigma - ED",200,-0.1,0.1);
+hist_ED_MM_cut_2c->GetXaxis()->SetTitle("MM^{2}(epKK) (GeV)");
+// Cut 3 - histograms
+TH1D *hist_ED_MM_cut_3c = new TH1D("hist_ED_MM_cut_3c", "MM^{2}(epKK): cut |MM(eKK)|<3#sigma, |MM(epK^{-})|<3#sigma and |MM(epK^{+})|<3#sigma - ED",200,-0.1,0.1);
+hist_ED_MM_cut_3c->GetXaxis()->SetTitle("MM^{2}(epKK) (GeV)");
+TH1D *hist_ED_MM_cut_3c_2 = new TH1D("hist_ED_MM_cut_3c_2", "Beam-based t distribution: cut |MM(eKK)|<3#sigma, |MM(epK^{-})|<3#sigma and |MM(epK^{+})|<3#sigma - ED",200,-4,0);
+hist_ED_MM_cut_3c_2->GetXaxis()->SetTitle("Beam-based t");
+
+
+//// Loop to make calculations
+
+// Create variables for indicies, counts, cuts and limits
+//long int indx_event;
+long int indx_entry;
+long int entry_count=0;
+int chi2pid_fail;
+int event_size_2;
+long int num_of_events_1 = tree_1->GetEntries();
+long int num_of_events_2 = tree_2->GetEntries();
+cout << "Number of events in chanser file 1 tree 1: " << num_of_events_1 << endl;
+cout << "Number of events in chanser file 2 tree 1: " << num_of_events_2 << endl; 
+
+// CHANSER FILE 1 //////////////////////////////////////////////////////////////////
+// Loop over each event in tree 1
+for(long int indx_event_1=0; indx_event_1<num_of_events_1; indx_event_1++){
+
+    // Get event from tree
+    tree_1->GetEvent(indx_event_1);
+
+    // Proton in FD and CD, kaons in FD
+    if (epKKproTheta_1>5 && epKKproTheta_1<125 && epKKkpTheta_1>5 && epKKkpTheta_1<35 && epKKkmTheta_1>5 && epKKkmTheta_1<35){
+    
+        TLorentzVector el_chans1_LV;
+        el_chans1_LV.SetXYZM(epKKelPx_1,epKKelPy_1,epKKelPz_1,0.000511);
+        TLorentzVector pro_chans1_LV;
+        pro_chans1_LV.SetXYZM(epKKproPx_1,epKKproPy_1,epKKproPz_1,0.938272);
+        TLorentzVector kp_chans1_LV;
+        kp_chans1_LV.SetXYZM(epKKkpPx_1,epKKkpPy_1,epKKkpPz_1,0.493677);
+        TLorentzVector km_chans1_LV;
+        km_chans1_LV.SetXYZM(epKKkmPx_1,epKKkmPy_1,epKKkmPz_1,0.493677);
+
+        double eKK_MM = (target_LV + beam_LV - el_chans1_LV - kp_chans1_LV - km_chans1_LV).M();
+        hist_SD_MM_1a->Fill(eKK_MM);
+        
+        double epkp_MM = (target_LV + beam_LV - el_chans1_LV - pro_chans1_LV - km_chans1_LV).M();
+        hist_SD_MM_3a->Fill(eKK_MM);
+
+        double epkm_MM = (target_LV + beam_LV - el_chans1_LV - pro_chans1_LV - kp_chans1_LV).M();
+        hist_SD_MM_4a->Fill(eKK_MM);
+
+        // Cut three: MM(eKK), MM(epK-) and MM(epK+)
+        if (eKK_MM>0.787316 && eKK_MM<1.040396 && epkm_MM>0.337717 && epkm_MM<0.620545 && epkp_MM>0.322356 && epkp_MM<0.636372){
+            hist_SD_MM_cut_3c_2->Fill(epKKt2Mag_1);
+        }
+
+    }
+
+}
+
+// CHANSER FILE 2 //////////////////////////////////////////////////////////////////
+// Loop over each event in tree 2
+for(long int indx_event_2=0; indx_event_2<num_of_events_2; indx_event_2++){
+
+    // Get event from tree
+    tree_2->GetEvent(indx_event_2);
+
+    // Scattered electron energy cut (experimental data ONLY)
+    TLorentzVector el_chans2_LV;
+    el_chans2_LV.SetXYZM(epKKelPx_2,epKKelPy_2,epKKelPz_2,0.000511);
+    // FT electron energy correction
+    el_chans2_LV = Correct_Electron(el_chans2_LV);
+    if (el_chans2_LV.E()>0.4 && el_chans2_LV.E()<6){
+
+        // Proton in FD and CD, kaons in FD
+        if (epKKproTheta_2>5 && epKKproTheta_2<125 && epKKkpTheta_2>5 && epKKkpTheta_2<35 && epKKkmTheta_2>5 && epKKkmTheta_2<35){
+    
+            TLorentzVector pro_chans2_LV;
+            pro_chans2_LV.SetXYZM(epKKproPx_2,epKKproPy_2,epKKproPz_2,0.938272);
+            TLorentzVector kp_chans2_LV;
+            kp_chans2_LV.SetXYZM(epKKkpPx_2,epKKkpPy_2,epKKkpPz_2,0.493677);
+            TLorentzVector km_chans2_LV;
+            km_chans2_LV.SetXYZM(epKKkmPx_2,epKKkmPy_2,epKKkmPz_2,0.493677);
+
+            double eKK_MM = (target_LV + beam_LV - el_chans2_LV - kp_chans2_LV - km_chans2_LV).M();
+            hist_ED_MM_1a->Fill(eKK_MM);
+            hist_ED_MM_m3_0a->Fill(eKK_MM);
+
+            double epkp_MM = (target_LV + beam_LV - el_chans2_LV - pro_chans2_LV - km_chans2_LV).M();
+            hist_ED_MM_3a->Fill(epkp_MM);
+
+            double epkm_MM = (target_LV + beam_LV - el_chans2_LV - pro_chans2_LV - kp_chans2_LV).M();
+            hist_ED_MM_4a->Fill(epkm_MM);
+
+            // Method 3 - filling epk- historgrams (sigma of hist_ED_MM_m3_0a has been hardcoded)
+            if (eKK_MM>0.741394 && eKK_MM<1.117924){
+                hist_ED_MM_m3_1a->Fill(epkm_MM);
+            } else if (eKK_MM>0.553129 && eKK_MM<0.741394){
+                hist_ED_MM_m3_2a->Fill(epkm_MM);
+            } else if (eKK_MM>1.117924 && eKK_MM<1.306189) {
+                hist_ED_MM_m3_3a->Fill(epkm_MM);
+            }
+
+            // Comparison - histogram filling
+            hist_ED_MM_comp_1a->Fill(eKK_MM,epkm_MM);
+
+            // Cut method - histogram filling
+            // Cut zero: no cut
+            hist_ED_MM_cut_0c->Fill(epKKMissMass2_2);
+            // Cut one: MM(eKK)
+            if (eKK_MM>0.741394 && eKK_MM<1.117924){
+                hist_ED_MM_cut_1a->Fill(epkp_MM);
+                hist_ED_MM_cut_1b->Fill(epkm_MM);
+                hist_ED_MM_cut_1c->Fill(epKKMissMass2_2);
+            }
+            // Cut two: MM(eKK) and MM(epK-)
+            if (eKK_MM>0.741394 && eKK_MM<1.117924 && epkm_MM>0.294505 && epkm_MM<0.687439){
+                hist_ED_MM_cut_2b->Fill(epkp_MM);
+                hist_ED_MM_cut_2c->Fill(epKKMissMass2_2);
+            }
+            // Cut three: MM(eKK), MM(epK-) and MM(epK+)
+            if (eKK_MM>0.741394 && eKK_MM<1.117924 && epkm_MM>0.294505 && epkm_MM<0.687439 && epkp_MM>0.302825 && epkp_MM<0.689117){
+                hist_ED_MM_cut_3c->Fill(epKKMissMass2_2);
+                hist_ED_MM_cut_3c_2->Fill(epKKt2Mag_2);
+            }
+
+        }
+
+    }
+
+}
+
+// For eKK
+// Background subtraction method 1
+// Fit function - TF1("[name of fitting TF1 object]", [name of fitting function], [lower x coordinate], [higher x coordinate], [number of parameters]);
+TF1 *fitFcn = new TF1("fitFcn",fitFunction,0.6,1.25,8);
+fitFcn->SetParameters(1,1,1,1,1,1000,0.938272,0.01);
+fitFcn->SetLineColor(kViolet);
+hist_ED_MM_1a->Fit("fitFcn","R+");
+// Background
+TF1 background("background","[0]+[1]*x+[2]*x**2 + [3]*x**3 + [4]*x**4",0.6,1.25);
+background.SetParameter(0,fitFcn->GetParameter(0));
+background.SetParameter(1,fitFcn->GetParameter(1));
+background.SetParameter(2,fitFcn->GetParameter(2));
+background.SetParameter(3,fitFcn->GetParameter(3));
+background.SetParameter(4,fitFcn->GetParameter(4));
+// Signal
+TF1 signal("signal","[0]*TMath::Gaus(x,[1],[2])",0.6,1.25);
+signal.SetParameter(0,fitFcn->GetParameter(5));
+signal.SetParameter(1,fitFcn->GetParameter(6));
+signal.SetParameter(2,fitFcn->GetParameter(7));
+// Background subtraction method 2
+for (int indx=1; indx<200; indx++){
+    int BG_evaled = background.Eval(hist_ED_MM_1a->GetBinCenter(indx));
+    double signal_amount = hist_ED_MM_1a->GetBinContent(indx) - BG_evaled;
+    if (signal_amount>0){
+        hist_ED_MM_2a->SetBinContent(indx, signal_amount);
+    }
+}
+TF1 *fitFcn2 = new TF1("fitFcn2",GaussPeak,0.6,1.25,3);
+fitFcn2->SetParameters(1000,0.938272,0.01);
+fitFcn2->SetLineColor(kViolet);
+hist_ED_MM_2a->Fit("fitFcn2","R+");
+
+// For epK-
+// Background subtraction method 1
+// Fit function
+TF1 *fitFcn3 = new TF1("fitFcn3",fitFunction,0.1,0.9,8);
+fitFcn3->SetParameters(1,1,1,1,1,1000,0.493677,0.01);
+fitFcn3->SetLineColor(kViolet);
+hist_ED_MM_3a->Fit("fitFcn3","R+");
+// Background
+TF1 background3("background3","[0]+[1]*x+[2]*x**2 + [3]*x**3 + [4]*x**4",0.1,0.9);
+background3.SetParameter(0,fitFcn3->GetParameter(0));
+background3.SetParameter(1,fitFcn3->GetParameter(1));
+background3.SetParameter(2,fitFcn3->GetParameter(2));
+background3.SetParameter(3,fitFcn3->GetParameter(3));
+background3.SetParameter(4,fitFcn3->GetParameter(4));
+// Signal
+TF1 signal3("signal3","[0]*TMath::Gaus(x,[1],[2])",0.1,0.9);
+signal3.SetParameter(0,fitFcn3->GetParameter(5));
+signal3.SetParameter(1,fitFcn3->GetParameter(6));
+signal3.SetParameter(2,fitFcn3->GetParameter(7));
+
+// For epK+
+// Background subtraction method 1
+// Fit function
+TF1 *fitFcn4 = new TF1("fitFcn4",fitFunction,0.1,0.9,8);
+fitFcn4->SetParameters(1,1,1,1,1,1000,0.493677,0.01);
+fitFcn4->SetLineColor(kViolet);
+hist_ED_MM_4a->Fit("fitFcn4","R+");
+// Background
+TF1 background4("background4","[0]+[1]*x+[2]*x**2 + [3]*x**3 + [4]*x**4",0.1,0.9);
+background4.SetParameter(0,fitFcn4->GetParameter(0));
+background4.SetParameter(1,fitFcn4->GetParameter(1));
+background4.SetParameter(2,fitFcn4->GetParameter(2));
+background4.SetParameter(3,fitFcn4->GetParameter(3));
+background4.SetParameter(4,fitFcn4->GetParameter(4));
+// Signal
+TF1 signal4("signal4","[0]*TMath::Gaus(x,[1],[2])",0.1,0.9);
+signal4.SetParameter(0,fitFcn4->GetParameter(5));
+signal4.SetParameter(1,fitFcn4->GetParameter(6));
+signal4.SetParameter(2,fitFcn4->GetParameter(7));
+
+//// Background removal - method 3
+// Fit function
+TF1 *fitFcn5 = new TF1("fitFcn5",fitFunction,0.5,1.35,8);
+fitFcn5->SetParameters(1,1,1,1,1,1000,0.938272,0.01);
+fitFcn5->SetLineColor(kViolet);
+hist_ED_MM_m3_0a->Fit("fitFcn5","R+");
+// Background
+TF1 background5("background5","[0]+[1]*x+[2]*x**2 + [3]*x**3 + [4]*x**4",0.5,1.35);
+background5.SetParameter(0,fitFcn5->GetParameter(0));
+background5.SetParameter(1,fitFcn5->GetParameter(1));
+background5.SetParameter(2,fitFcn5->GetParameter(2));
+background5.SetParameter(3,fitFcn5->GetParameter(3));
+background5.SetParameter(4,fitFcn5->GetParameter(4));
+// Signal
+TF1 signal5("signal5","[0]*TMath::Gaus(x,[1],[2])",0.5,1.35);
+signal5.SetParameter(0,fitFcn5->GetParameter(5));
+signal5.SetParameter(1,fitFcn5->GetParameter(6));
+signal5.SetParameter(2,fitFcn5->GetParameter(7));
+// Integrals
+double region_A_int;
+double region_B_int;
+double region_C_int;
+double BC_weight;
+region_A_int=background5.Integral(0.741394,1.117924);
+region_B_int=background5.Integral(0.553129,0.741394);
+region_C_int=background5.Integral(1.117924,1.306189);
+// Weight
+BC_weight = region_A_int/((region_B_int+region_C_int));
+// New histograms and fitting true signal
+hist_ED_MM_m3_2a->Add(hist_ED_MM_m3_3a);
+hist_ED_MM_m3_1a->Add(hist_ED_MM_m3_2a,-BC_weight);
+hist_ED_MM_m3_1a->SetTitle("|MM(epK^{-})| true signal - ED");
+TF1 *fitFcn6 = new TF1("fitFcn6",fitFunction,0.1,0.9,8);
+fitFcn6->SetParameters(1,1,1,1,1,1000,0.493677,0.01);
+fitFcn6->SetLineColor(kViolet);
+hist_ED_MM_m3_1a->Fit("fitFcn6","R+");
+
+// Background removal - cut method
+// Fit function
+TF1 *fitFcn_cut3 = new TF1("fitFcn_cut3",fitFunction,0.1,0.9,8);
+fitFcn_cut3->SetParameters(1,1,1,1,1,1000,0.493677,0.01);
+fitFcn_cut3->SetLineColor(kViolet);
+//hist_ED_MM_cut_2b->Fit("fitFcn_cut3","R+");
+cout << fitFcn_cut3->GetParameter(6) << " " << to_string(fitFcn_cut3->GetParameter(7));
+
+
+//// Write histograms and make canvases
+double x[2]={0,1};
+double y[2]={0,1};
+TGraph graph_1(2,x,y);
+TGraph graph_2(2,x,y);
+TGraph graph_3(2,x,y);
+TGraph graph_4(2,x,y);
+TGraph graph_5(2,x,y);
+graph_1.SetLineColor(kRed);
+graph_2.SetLineColor(kBlue);
+TLegend legend_1(.15,.65,.45,.85,"Type of data");
+legend_1.SetFillColor(0);
+legend_1.AddEntry(&graph_1,"Simulated");
+legend_1.AddEntry(&graph_2,"Experimental");
+
+// Canvas 1
+TCanvas *canvas_1=new TCanvas();
+// Canvas 1 - histrogram 1
+hist_ED_MM_1a->SetStats(1111);
+hist_ED_MM_1a->SetLineColor(kBlack);
+//hist_ED_MM_1a->GetYaxis()->SetRangeUser(0,1000);
+hist_ED_MM_1a->Draw();
+// Canvas 1 - background function
+background.SetLineColor(kRed);
+background.DrawClone("Same");
+// Canvas 1 - signal function
+signal.SetLineColor(kBlue);
+signal.DrawClone("Same");
+// Canvas 1 - text
+string str1 = "#splitline{Gaussian:}{#splitline{mean=" + to_string(fitFcn->GetParameter(6)) + "}{std=" + to_string(fitFcn->GetParameter(7)) + "}}";
+TLatex latex1(1.075,500,str1.c_str());
+latex1.DrawClone("Same");
+canvas_1->Print("plots_BG_sub_TCC_1.root");
+
+// Canvas 2
+TCanvas *canvas_2=new TCanvas();
+// Canvas 2 - histrogram 1
+hist_ED_MM_2a->SetStats(1111);
+hist_ED_MM_2a->SetLineColor(kBlack);
+//hist_ED_MM_2a->GetYaxis()->SetRangeUser(0,1000);
+hist_ED_MM_2a->Draw();
+// Canvas 2 - text
+string str2 = "#splitline{Gaussian:}{#splitline{mean=" + to_string(fitFcn2->GetParameter(1)) + "}{std=" + to_string(fitFcn2->GetParameter(2)) + "}}";
+TLatex latex2(1.075,200,str2.c_str());
+latex2.DrawClone("Same");
+canvas_2->Print("plots_BG_sub_TCC_2.root");
+
+// Canvas 3
+TCanvas *canvas_3=new TCanvas();
+// Canvas 3 - histrogram 1
+hist_ED_MM_3a->SetStats(1111);
+hist_ED_MM_3a->SetLineColor(kBlack);
+//hist_ED_MM_1a->GetYaxis()->SetRangeUser(0,1000);
+hist_ED_MM_3a->Draw();
+// Canvas 1 - background function
+background3.SetLineColor(kRed);
+background3.DrawClone("Same");
+// Canvas 1 - signal function
+signal3.SetLineColor(kBlue);
+signal3.DrawClone("Same");
+// Canvas 1 - text
+string str3 = "#splitline{Gaussian:}{#splitline{mean=" + to_string(fitFcn3->GetParameter(6)) + "}{std=" + to_string(fitFcn3->GetParameter(7)) + "}}";
+TLatex latex3(0.7,300,str3.c_str());
+latex3.DrawClone("Same");
+canvas_3->Print("plots_BG_sub_TCC_3.root");
+
+// Canvas 4
+TCanvas *canvas_4=new TCanvas();
+// Canvas 4 - histrogram 1
+hist_ED_MM_4a->SetStats(1111);
+hist_ED_MM_4a->SetLineColor(kBlack);
+//hist_ED_MM_1a->GetYaxis()->SetRangeUser(0,1000);
+hist_ED_MM_4a->Draw();
+// Canvas 1 - background function
+background4.SetLineColor(kRed);
+background4.DrawClone("Same");
+// Canvas 1 - signal function
+signal4.SetLineColor(kBlue);
+signal4.DrawClone("Same");
+// Canvas 1 - text
+string str4 = "#splitline{Gaussian:}{#splitline{mean=" + to_string(fitFcn4->GetParameter(6)) + "}{std=" + to_string(fitFcn4->GetParameter(7)) + "}}";
+TLatex latex4(0.7,350,str4.c_str());
+latex4.DrawClone("Same");
+canvas_4->Print("plots_BG_sub_TCC_4.root");
+
+// Canvas 5
+TCanvas *canvas_5=new TCanvas();
+// Canvas 5 - histrogram 1
+hist_ED_MM_m3_0a->SetStats(1111);
+hist_ED_MM_m3_0a->SetLineColor(kBlack);
+hist_ED_MM_m3_0a->Draw();
+// Canvas 5 - background function
+background5.SetLineColor(kRed);
+background5.DrawClone("Same");
+// Canvas 5 - signal function
+signal5.SetLineColor(kBlue);
+signal5.DrawClone("Same");
+// Canvas 5 - text
+string str5 = "#splitline{Gaussian:}{#splitline{mean=" + to_string(fitFcn4->GetParameter(6)) + "}{std=" + to_string(fitFcn4->GetParameter(7)) + "}}";
+TLatex latex5(1.075,500,str5.c_str());
+latex5.DrawClone("Same");
+canvas_5->Print("plots_BG_sub_TCC_5.root");
+
+
+// Canvas 6
+TCanvas *canvas_6=new TCanvas();
+// Canvas 6 - histrogram 1
+hist_ED_MM_m3_0a->SetStats(1111);
+hist_ED_MM_m3_0a->SetLineColor(kBlack);
+hist_ED_MM_m3_0a->Draw();
+// Canvas 6 - lines
+TLine *line1 = new TLine(0.741394,0,0.741394,400);
+TLine *line2 = new TLine(1.117924,0,1.117924,400);
+line1->DrawClone();
+line2->DrawClone();
+// Canvas 6 - text
+TLatex latex6(0.65,250,"A");
+TLatex latex7(0.95,250,"B");
+TLatex latex8(1.25,250,"C");
+latex6.DrawClone("Same");
+latex7.DrawClone("Same");
+latex8.DrawClone("Same");
+canvas_6->Print("plots_BG_sub_TCC_6.root");
+
+// Canvas 7
+TCanvas *canvas_7=new TCanvas();
+// Canvas 7 - histrogram 1
+hist_ED_MM_m3_1a->SetStats(1111);
+hist_ED_MM_m3_1a->SetLineColor(kBlack);
+hist_ED_MM_m3_1a->Draw();
+// Canvas 5 - text
+string str6 = "#splitline{Gaussian:}{#splitline{mean=" + to_string(fitFcn6->GetParameter(6)) + "}{std=" + to_string(fitFcn6->GetParameter(7)) + "}}";
+TLatex latex9(0.7,500,str6.c_str());
+latex9.DrawClone("Same");
+canvas_7->Print("plots_BG_sub_TCC_7.root");
+
+// Canvas 8
+TCanvas *canvas_8=new TCanvas();
+// Canvas 8 - histrogram 1
+hist_ED_MM_cut_3c_2->Scale(1./hist_ED_MM_cut_3c_2->Integral(), "width");
+hist_ED_MM_cut_3c_2->SetStats(0);
+hist_ED_MM_cut_3c_2->SetLineColor(kBlue);
+hist_ED_MM_cut_3c_2->Draw("hist");
+// Canvas 8 - histrogram 2
+hist_SD_MM_cut_3c_2->Scale(1./hist_SD_MM_cut_3c_2->Integral(), "width");
+hist_SD_MM_cut_3c_2->SetStats(0);
+hist_SD_MM_cut_3c_2->SetLineColor(kRed);
+hist_SD_MM_cut_3c_2->DrawClone("hist same");
+// Canvas 5 - text
+string str7 = "#splitline{Red = simulated}{Blue = experimental}";
+TLatex latex10(-2,0.6,str7.c_str());
+latex10.DrawClone("Same");
+canvas_8->Print("plots_BG_sub_TCC_8.root");
+
+// Write histrograms to file
+file_r.Write();
+
+}

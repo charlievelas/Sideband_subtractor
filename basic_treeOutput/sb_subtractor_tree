@@ -1,0 +1,95 @@
+#include <TCanvas.h>
+#include <TH1F.h>
+#include <TFile.h>
+#include <TTree.h>
+#include <TF1.h>
+#include <TMath.h>
+
+// Background - Quadratic background function
+double Background(double *x, double *par) {
+    return par[0] + par[1] * x[0];
+}
+
+// Signal - Gauss Peak function
+double GaussPeak(double *x, double *par) {
+    return par[0] * TMath::Gaus(x[0], par[1], par[2]);
+}
+
+// Sum of background and peak function
+double fitFunction(double *x, double *par) {
+    return Background(x, par) + GaussPeak(x, &par[2]);
+}
+
+void sb_subtractor_tree() {
+    // Load file, tree, branches, and distributions
+    TFile infile("distributions_uniform.root");
+    TTree *tree = (TTree*)infile.Get(infile.GetListOfKeys()->At(0)->GetName());
+
+    // Declare variables as Float_t
+    Float_t mass, pz;
+    tree->SetBranchAddress("mass", &mass);
+    tree->SetBranchAddress("pz", &pz);
+
+    // Define sideband and signal regions
+    Float_t sb_left_lower = 0.5;
+    Float_t sb_left_upper = 2.5;
+    Float_t sb_right_lower = 7.5;
+    Float_t sb_right_upper = 9.5;
+    Float_t sig_lower = 3;
+    Float_t sig_upper = 7;
+
+    // Create output file and tree
+    TFile outfile("sb_subtracted_tree.root", "RECREATE");
+    TTree *outTree = new TTree("tree_out", "Tree with sideband subtracted");
+
+    // New branch for sideband-subtracted pz (using Float_t)
+    Float_t pz_subtracted;
+    outTree->Branch("pz_subtracted", &pz_subtracted, "pz_subtracted/F");  // Sideband-subtracted pz
+
+    // Fit function setup
+    TF1 *fitFcn = new TF1("fitFcn", fitFunction, 0, 10, 5);
+    fitFcn->SetParameters(1, 1, 1, 5, 0.5);  // Set some initial parameters
+
+    // Fit the mass distribution
+    TH1F *hist0 = new TH1F("hist0", "Mass Distribution", 100, 0, 10);
+    tree->Draw("mass>>hist0");
+    hist0->Fit(fitFcn, "R+");
+
+    // Extract the background fit from the overall fit function
+    TF1 *BGfit = new TF1("BGfit", Background, 0, 10, 2);
+    BGfit->SetParameters(fitFcn->GetParameter(0), fitFcn->GetParameter(1));
+
+    // Calculate integrals for the sideband and signal regions
+    double SIG_Int = BGfit->Integral(sig_lower, sig_upper);
+    double LSB_Int = BGfit->Integral(sb_left_lower, sb_left_upper);  // Left sideband integral
+    double RSB_Int = BGfit->Integral(sb_right_lower, sb_right_upper);  // Right sideband integral
+    double sig_wgt = SIG_Int/(LSB_Int + RSB_Int);  // Weight based on the sideband integrals
+
+    // Loop over the tree entries to process each event
+    Long64_t nEntries = tree->GetEntries();
+    for (Long64_t i = 0; i < nEntries; i++) {
+        tree->GetEntry(i);
+
+        // Only process events in the signal region (between sig_lower and sig_upper)
+        if (mass >= sig_lower && mass <= sig_upper) {
+            cout << "sig_wgt :" << sig_wgt << endl;
+            cout << "Mass value :" << mass << endl;
+
+            // Compute the background value at the mass point
+            Float_t bg_value = BGfit->Eval(mass);
+            cout << "BG at mass value :" << bg_value << endl;
+
+            // Subtract the weighted background value from pz
+            pz_subtracted = pz - (bg_value * sig_wgt);
+            cout << "pz :" << pz << endl;
+            cout << "pz_subtracted :" << pz_subtracted << endl;
+
+            // Fill the new tree with the sideband-subtracted pz
+            outTree->Fill();
+        }
+    }
+
+    // Write the output tree to the file
+    outTree->Write();
+    outfile.Close();
+}
