@@ -12,5 +12,5 @@ export SidebandS=$PWD
 ```
 
 ## How to run
-        root '$SidebandS/subtrctor("/the/location/of/file.root")'
+        root '$SidebandS/sbSubGUI("/the/location/of/file.root")'
 
