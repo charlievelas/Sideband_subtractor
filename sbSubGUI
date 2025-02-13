@@ -396,7 +396,7 @@ MyMainFrame::MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* file
    fMain->AddFrame(hframe, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
 
    // Set a name to the main frame
-   fMain->SetWindowName("TTree Branch Selector");
+   fMain->SetWindowName("Sideband Subtractor");
 
    // Populate the ComboBoxes with branch names
    if (fTree) {
@@ -495,11 +495,13 @@ void MyMainFrame::DoDraw() {
    fCanvas->cd(2);
    gPad->Clear();
 
+   // Pad 2
    // Defining and drawing second tree histogram
    fTree->Draw(drawCommandCont.Data());
    TH1F *histCont = (TH1F*)gDirectory->Get("hist2");
    fCanvas->cd(2);
    histCont->Draw();
+   histCont->SetTitle(drawTitleCont.Data());
    histCont->SetMinimum(0);
 
    // Update the canvas to display the histograms
@@ -796,21 +798,6 @@ void MyMainFrame::DoFit() {
    // Background fit function
    BGfit->SetLineColor(kBlue);
    BGfit->DrawCopy("same");
-   // Sideband regions
-   double sb_L_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fLSBMax))*0.50 + histDisc->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   double sb_R_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fRSBMax))*0.50 + histDisc->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
-   sb_L_l->SetLineWidth(2);
-   sb_L_l->Draw();
-   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
-   sb_L_u->SetLineWidth(2);
-   sb_L_u->Draw();
-   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
-   sb_R_l->SetLineWidth(2);
-   sb_R_l->Draw();
-   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
-   sb_R_u->SetLineWidth(2);
-   sb_R_u->Draw();
    histDisc->SetMinimum(0);
    // Signal fit info box
    TString SIGfit_str = Form("#splitline{Signal fit info}{#splitline{#mu: %.5g}{#sigma: %.5g}}", abs(fitFcn->GetParameter(4)), abs(fitFcn->GetParameter(5)));
@@ -1142,21 +1129,6 @@ void MyMainFrame::DoSub() {
    // Background fit function
    BGfit->SetLineColor(kBlue);
    BGfit->DrawCopy("same");
-   // Sideband regions
-   double sb_L_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fLSBMax))*0.50 + histDisc->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   double sb_R_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fRSBMax))*0.50 + histDisc->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
-   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
-   sb_L_l->SetLineWidth(2);
-   sb_L_l->Draw();
-   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
-   sb_L_u->SetLineWidth(2);
-   sb_L_u->Draw();
-   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
-   sb_R_l->SetLineWidth(2);
-   sb_R_l->Draw();
-   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
-   sb_R_u->SetLineWidth(2);
-   sb_R_u->Draw();
    histDisc->SetMinimum(0);
    // Signal fit info box
    TString SIGfit_str = Form("#splitline{Signal fit info}{#splitline{#mu: %.5g}{#sigma: %.5g}}", abs(fitFcn->GetParameter(4)), abs(fitFcn->GetParameter(5)));
