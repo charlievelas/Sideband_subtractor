@@ -1,0 +1,19 @@
+Version 2.
+
+Version 1 required improvements:
+ - add legend
+ - a basic draw function with no fitting so user can chose range
+ - a separate fit function (and button) which doesn't allow fit variables with zero difference (eg sig max=0 and sig min =0)
+ - gives error if it can't fit
+ - gives error if below left sideband or above right sideband or if there is any overlap
+
+Capabilties:
+ -
+ -
+ - 
+
+Required improvements:
+ -
+ -
+ -
+

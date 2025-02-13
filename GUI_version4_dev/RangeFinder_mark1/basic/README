@@ -1,0 +1,6 @@
+To run RangeFinder, enter,
+
+	root RangeFinder.C
+
+It will run on the distributions_RF.root file and remove the bottom 0.5 percentile of data, cleaning up the distribution.
+

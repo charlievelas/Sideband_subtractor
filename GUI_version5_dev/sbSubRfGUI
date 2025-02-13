@@ -1,0 +1,1223 @@
+#include <TGClient.h>
+#include <TCanvas.h>
+#include <TH1F.h>  // Include header for histograms
+#include <TRandom.h>
+#include <TGButton.h>
+#include <TGFrame.h>
+#include <TGComboBox.h>
+#include <TRootEmbeddedCanvas.h>
+#include <RQ_OBJECT.h>
+#include <TFile.h>
+#include <TTree.h>
+#include <iostream>
+#include <string>
+#include <TGNumberEntry.h>  // Include for number entry widgets
+#include <TGLabel.h>  // Include for label widget
+
+// Fit functions
+// Background - Quadratic background function
+double Background(double *x, double *par) {
+   return par[0] + par[1]*x[0] + par[2]*x[0]*x[0];
+}
+// Signal - Gauss Peak function
+double GaussPeak(double *x, double *par) {
+   return par[0]*TMath::Gaus(x[0], par[1], par[2]);
+}
+// Sum of background and peak function
+double fitFunction(double *x, double *par) {
+   return Background(x,par) + GaussPeak(x,&par[3]);
+   //&par[5] is where the guass parameters start in the length-8 'par' array containing the parameters for the background and the peak
+}
+
+class MyMainFrame {
+   RQ_OBJECT("MyMainFrame")
+private:
+   TGMainFrame         *fMain;
+   TRootEmbeddedCanvas *fEcanvas;
+   TCanvas             *fCanvas;
+   // Discrimnating variable (i'd use "_Disc" but its not neat)
+   TGComboBox          *fComboBoxDisc;  // Drop-down list for branch names for discriminating variable
+   TGNumberEntry       *fBinsEntryDisc;  // Number of bins input
+   TGNumberEntry       *fMinXEntryDisc;  // Minimum X input
+   TGNumberEntry       *fMaxXEntryDisc;  // Maximum X input
+   TGNumberEntry       *fSigMinInput;   // Min input box
+   TGNumberEntry       *fSigMaxInput;   // Max input box
+   TGNumberEntry       *fFitMinInput;   // Min input box
+   TGNumberEntry       *fFitMaxInput;   // Max input box
+   TGNumberEntry       *fLSBMinInput;   // Min input box
+   TGNumberEntry       *fLSBMaxInput;   // Max input box
+   TGNumberEntry       *fRSBMinInput;   // Min input box
+   TGNumberEntry       *fRSBMaxInput;   // Max input box
+   // Control variable
+   TGComboBox          *fComboBoxCont;  // Drop-down list for branch names for control variable
+   TGNumberEntry       *fBinsEntryCont;  // Number of bins input
+   TGNumberEntry       *fMinXEntryCont;  // Minimum X input for drawing
+   TGNumberEntry       *fMaxXEntryCont;  // Maximum X input for drawing
+   TGNumberEntry       *fSubMinInput;  // Minimum X input for subtraction
+   TGNumberEntry       *fSubMaxInput;  // Maximum X input for subtraction
+   // Trees and files
+   TFile               *fFile1;       // ROOT file pointer
+   TTree               *fTree;       // TTree pointer
+   Int_t               fSelectedBranchDisc; // Store selected branch index
+   Int_t               fSelectedBranchCont; // Store selected branch index
+   // RangeFinder strings
+   TString             drawConditionMissMass;
+   TString             drawConditionMissMass2;
+public:
+   MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* filename1);
+   virtual ~MyMainFrame();
+   void DoDraw();
+   void DoFit();
+   void DoSub();
+   void OnSelectDisc(Int_t id);
+   void OnSelectCont(Int_t id);
+};
+
+MyMainFrame::MyMainFrame(const TGWindow *p, UInt_t w, UInt_t h, const char* filename1) 
+   : fSelectedBranchDisc(-1), fSelectedBranchCont(-1) {  // Initialize fSelectedBranchDisc to -1 (no selection initially)
+
+   // Open the ROOT files
+   fFile1 = TFile::Open(filename1);
+   if (!fFile1 || !fFile1->IsOpen()) {
+      Error("MyMainFrame", "Failed to open file 1: %s", filename1);
+      return;
+   }
+
+   // Get the first TTrees from the files
+   fTree = (TTree*)fFile1->Get(fFile1->GetListOfKeys()->At(0)->GetName()); // 'fTree' has remained 'fTree' for the sake of not having to rewrite large parts of later sections
+    
+   // Create a main frame
+   fMain = new TGMainFrame(p, w, h);
+
+   //// Canvas section
+   // Create a horizontal frame to hold the canvas and widgets side by side
+   TGHorizontalFrame *hframe = new TGHorizontalFrame(fMain, w, h);
+
+   // Create a vertical frame to hold the label and canvas
+   TGVerticalFrame *vframe1 = new TGVerticalFrame(hframe);
+
+   // Create canvas widget (on the left)
+   fEcanvas = new TRootEmbeddedCanvas("Ecanvas", vframe1, 1400, 700);
+   vframe1->AddFrame(fEcanvas, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 5, 5, 5, 5)); // Canvas with all margins
+
+   // Split canvas into two pads
+   fCanvas = fEcanvas->GetCanvas();
+   fCanvas->Divide(2, 1);
+
+   // Add canvas1 to hframe
+   hframe->AddFrame(vframe1, new TGLayoutHints(kLHintsTop | kLHintsLeft | kLHintsTop | kLHintsLeft, 5, 5, 5, 5)); // Vertical frame in the main frame
+
+   // Create a vertical frame to hold the canvas
+   TGVerticalFrame *vframe2 = new TGVerticalFrame(hframe);
+
+   // Create a vertical frame for buttons and drop-down list (on the right)
+   TGVerticalFrame *vframe = new TGVerticalFrame(hframe, 200, 140);
+
+   //// Widget section
+   // Create and add the Exit button at the top (before all other widgets)
+   TGTextButton *exit = new TGTextButton(vframe, "&Exit", "gApplication->Terminate(0)");
+   vframe->AddFrame(exit, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Add a 3D horizontal line 
+   TGHorizontal3DLine *hline1 = new TGHorizontal3DLine(vframe);
+   hline1->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
+   vframe->AddFrame(hline1, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Create a vertical frame for the labels and combo boxes (Branch name and Branch to cut on)
+   TGVerticalFrame *comboFrame = new TGVerticalFrame(vframe, 200, 60);
+
+   // Discriminating variable section label
+   TGLabel *DiscLabel = new TGLabel(comboFrame, "Discriminating Variable");
+   comboFrame->AddFrame(DiscLabel, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 5));
+
+   // "Choose variable:" label and ComboBox
+   TGLabel *branchLabel = new TGLabel(comboFrame, "Choose variable:");
+   comboFrame->AddFrame(branchLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+
+   fComboBoxDisc = new TGComboBox(comboFrame, "Choose variable", 50);
+   fComboBoxDisc->Select(1); // Default selection (1)
+   fComboBoxDisc->Connect("Selected(Int_t)", "MyMainFrame", this, "OnSelectDisc(Int_t)");
+   fComboBoxDisc->Resize(200, 25);
+   comboFrame->AddFrame(fComboBoxDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   vframe->AddFrame(comboFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Create a horizontal frame for the three input boxes (Bins, Min x, Max x)
+   TGHorizontalFrame *hInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+
+   // Bins label and input box
+   TGVerticalFrame *binsFrame = new TGVerticalFrame(hInputFrame, 60, 60);
+   TGLabel *binsLabel = new TGLabel(binsFrame, "Bins:");
+   binsFrame->AddFrame(binsLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fBinsEntryDisc = new TGNumberEntry(binsFrame, 100, 5, -1, TGNumberFormat::kNESInteger, TGNumberFormat::kNEAAnyNumber);
+   fBinsEntryDisc->SetWidth(60);
+   binsFrame->AddFrame(fBinsEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame->AddFrame(binsFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   // Min x label and input box
+   TGVerticalFrame *minXFrame = new TGVerticalFrame(hInputFrame, 60, 60);
+   TGLabel *minXLabel = new TGLabel(minXFrame, "Min x:");
+   minXFrame->AddFrame(minXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMinXEntryDisc = new TGNumberEntry(minXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMinXEntryDisc->SetWidth(60);
+   minXFrame->AddFrame(fMinXEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame->AddFrame(minXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   // Max x label and input box
+   TGVerticalFrame *maxXFrame = new TGVerticalFrame(hInputFrame, 60, 60);
+   TGLabel *maxXLabel = new TGLabel(maxXFrame, "Max x:");
+   maxXFrame->AddFrame(maxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMaxXEntryDisc = new TGNumberEntry(maxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMaxXEntryDisc->SetWidth(60);
+   maxXFrame->AddFrame(fMaxXEntryDisc, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame->AddFrame(maxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   vframe->AddFrame(hInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Create a horizontal frame for the fit range inputs
+   TGHorizontalFrame *hFitLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *FitLabel = new TGLabel(hFitLabelFrame, "Fit range:");
+   hFitLabelFrame->AddFrame(FitLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hFitLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+
+   TGHorizontalFrame *hFitInputFrame = new TGHorizontalFrame(vframe, 200, 60);
+
+   // Fit range min x label and input box
+   TGHorizontalFrame *FitMinXFrame = new TGHorizontalFrame(hFitInputFrame, 120, 60);
+   TGLabel *FitMinXLabel = new TGLabel(FitMinXFrame, "Min:");
+   FitMinXFrame->AddFrame(FitMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fFitMinInput = new TGNumberEntry(FitMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fFitMinInput->SetWidth(60);
+   FitMinXFrame->AddFrame(fFitMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hFitInputFrame->AddFrame(FitMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Max x label and input box
+   TGHorizontalFrame *FitMaxXFrame = new TGHorizontalFrame(hFitInputFrame, 120, 60);
+   TGLabel *FitMaxXLabel = new TGLabel(FitMaxXFrame, "Max:");
+   FitMaxXFrame->AddFrame(FitMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fFitMaxInput = new TGNumberEntry(FitMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fFitMaxInput->SetWidth(60);
+   FitMaxXFrame->AddFrame(fFitMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hFitInputFrame->AddFrame(FitMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hFitInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+
+   // Create a horizontal frame for the signal region inputs
+   TGHorizontalFrame *hSigLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *SigLabel = new TGLabel(hSigLabelFrame, "Signal region:");
+   hSigLabelFrame->AddFrame(SigLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hSigLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+
+   TGHorizontalFrame *hSigInputFrame = new TGHorizontalFrame(vframe, 200, 60);
+
+   // Signal min x label and input box
+   TGHorizontalFrame *SigMinXFrame = new TGHorizontalFrame(hSigInputFrame, 120, 60);
+   TGLabel *SigMinXLabel = new TGLabel(SigMinXFrame, "Min:");
+   SigMinXFrame->AddFrame(SigMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSigMinInput = new TGNumberEntry(SigMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSigMinInput->SetWidth(60);
+   SigMinXFrame->AddFrame(fSigMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSigInputFrame->AddFrame(SigMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Max x label and input box
+   TGHorizontalFrame *SigMaxXFrame = new TGHorizontalFrame(hSigInputFrame, 120, 60);
+   TGLabel *SigMaxXLabel = new TGLabel(SigMaxXFrame, "Max:");
+   SigMaxXFrame->AddFrame(SigMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSigMaxInput = new TGNumberEntry(SigMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSigMaxInput->SetWidth(60);
+   SigMaxXFrame->AddFrame(fSigMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSigInputFrame->AddFrame(SigMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hSigInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+
+   // Create a horizontal frame for the left sideband inputs
+   TGHorizontalFrame *hSBLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *SBLabel = new TGLabel(hSBLabelFrame, "Sideband regions:");
+   hSBLabelFrame->AddFrame(SBLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hSBLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+
+   TGHorizontalFrame *hLSBInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+
+   // Left sideband min x label and input box
+   TGHorizontalFrame *LSBMinXFrame = new TGHorizontalFrame(hLSBInputFrame, 60, 60);
+   TGLabel *LSBMinXLabel = new TGLabel(LSBMinXFrame, "L Min:");
+   LSBMinXFrame->AddFrame(LSBMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fLSBMinInput = new TGNumberEntry(LSBMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fLSBMinInput->SetWidth(60);
+   LSBMinXFrame->AddFrame(fLSBMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hLSBInputFrame->AddFrame(LSBMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Left sideband max x label and input box
+   TGHorizontalFrame *LSBMaxXFrame = new TGHorizontalFrame(hLSBInputFrame, 60, 60);
+   TGLabel *LSBMaxXLabel = new TGLabel(LSBMaxXFrame, "L Max:");
+   LSBMaxXFrame->AddFrame(LSBMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fLSBMaxInput = new TGNumberEntry(LSBMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fLSBMaxInput->SetWidth(60);
+   LSBMaxXFrame->AddFrame(fLSBMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hLSBInputFrame->AddFrame(LSBMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hLSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+
+   // Create a horizontal frame for the right sideband inputs
+   TGHorizontalFrame *hRSBInputFrame = new TGHorizontalFrame(vframe, 200, 120);
+
+   // Right sideband min x label and input box
+   TGHorizontalFrame *RSBMinXFrame = new TGHorizontalFrame(hRSBInputFrame, 60, 60);
+   TGLabel *RSBMinXLabel = new TGLabel(RSBMinXFrame, "R Min");
+   RSBMinXFrame->AddFrame(RSBMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fRSBMinInput = new TGNumberEntry(RSBMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fRSBMinInput->SetWidth(60);
+   RSBMinXFrame->AddFrame(fRSBMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hRSBInputFrame->AddFrame(RSBMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Right sideband max x label and input box
+   TGHorizontalFrame *RSBMaxXFrame = new TGHorizontalFrame(hRSBInputFrame, 60, 60);
+   TGLabel *RSBMaxXLabel = new TGLabel(RSBMaxXFrame, "R Max:");
+   RSBMaxXFrame->AddFrame(RSBMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fRSBMaxInput = new TGNumberEntry(RSBMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fRSBMaxInput->SetWidth(60);
+   RSBMaxXFrame->AddFrame(fRSBMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hRSBInputFrame->AddFrame(RSBMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hRSBInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+
+   // Add a 3D horizontal line 
+   TGHorizontal3DLine *hline2 = new TGHorizontal3DLine(vframe);
+   hline2->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
+   vframe->AddFrame(hline2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Create a vertical frame for the labels and combo boxes (Branch name and Branch to cut on)
+   TGVerticalFrame *comboFrame2 = new TGVerticalFrame(vframe, 200, 60);
+
+   // Discriminating variable section label
+   TGLabel *ContLabel = new TGLabel(comboFrame2, "Control Variable");
+   comboFrame2->AddFrame(ContLabel, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 5));
+
+   // "Choose variable:" label and ComboBox
+   TGLabel *branchLabel2 = new TGLabel(comboFrame2, "Choose variable:");
+   comboFrame2->AddFrame(branchLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+
+   fComboBoxCont = new TGComboBox(comboFrame2, "Choose variable", 50);
+   fComboBoxCont->Select(1); // Default selection (1)
+   fComboBoxCont->Connect("Selected(Int_t)", "MyMainFrame", this, "OnSelectCont(Int_t)");
+   fComboBoxCont->Resize(200, 25);
+   comboFrame2->AddFrame(fComboBoxCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   vframe->AddFrame(comboFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Create a horizontal frame for the three input boxes (Bins, Min x, Max x)
+   TGHorizontalFrame *hInputFrame2 = new TGHorizontalFrame(vframe, 200, 120);
+
+   // Bins label and input box
+   TGVerticalFrame *binsFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
+   TGLabel *binsLabel2 = new TGLabel(binsFrame2, "Bins:");
+   binsFrame2->AddFrame(binsLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fBinsEntryCont = new TGNumberEntry(binsFrame2, 100, 5, -1, TGNumberFormat::kNESInteger, TGNumberFormat::kNEAAnyNumber);
+   fBinsEntryCont->SetWidth(60);
+   binsFrame2->AddFrame(fBinsEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame2->AddFrame(binsFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   // Min x label and input box
+   TGVerticalFrame *minXFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
+   TGLabel *minXLabel2 = new TGLabel(minXFrame2, "Min");
+   minXFrame2->AddFrame(minXLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMinXEntryCont = new TGNumberEntry(minXFrame2, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMinXEntryCont->SetWidth(60);
+   minXFrame2->AddFrame(fMinXEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame2->AddFrame(minXFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   // Max x label and input box
+   TGVerticalFrame *maxXFrame2 = new TGVerticalFrame(hInputFrame2, 60, 60);
+   TGLabel *maxXLabel2 = new TGLabel(maxXFrame2, "Max");
+   maxXFrame2->AddFrame(maxXLabel2, new TGLayoutHints(kLHintsLeft, 5, 5, 3, 4));
+   fMaxXEntryCont = new TGNumberEntry(maxXFrame2, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fMaxXEntryCont->SetWidth(60);
+   maxXFrame2->AddFrame(fMaxXEntryCont, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+   hInputFrame2->AddFrame(maxXFrame2, new TGLayoutHints(kLHintsCenterY, 5, 5, 3, 4));
+
+   vframe->AddFrame(hInputFrame2, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+
+   // Create a horizontal frame for the subtraction region inputs
+   TGHorizontalFrame *hSubLabelFrame = new TGHorizontalFrame(vframe, 200, 60);
+   TGLabel *SubLabel = new TGLabel(hSubLabelFrame, "Subtraction range:");
+   hSubLabelFrame->AddFrame(SubLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+   vframe->AddFrame(hSubLabelFrame, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 0));
+
+   TGHorizontalFrame *hSubInputFrame = new TGHorizontalFrame(vframe, 200, 60);
+
+   // Subtraction min x label and input box
+   TGHorizontalFrame *SubMinXFrame = new TGHorizontalFrame(hSubInputFrame, 120, 60);
+   TGLabel *SubMinXLabel = new TGLabel(SubMinXFrame, "Min:");
+   SubMinXFrame->AddFrame(SubMinXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSubMinInput = new TGNumberEntry(SubMinXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSubMinInput->SetWidth(60);
+   SubMinXFrame->AddFrame(fSubMinInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSubInputFrame->AddFrame(SubMinXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Max x label and input box
+   TGHorizontalFrame *SubMaxXFrame = new TGHorizontalFrame(hSubInputFrame, 120, 60);
+   TGLabel *SubMaxXLabel = new TGLabel(SubMaxXFrame, "Max:");
+   SubMaxXFrame->AddFrame(SubMaxXLabel, new TGLayoutHints(kLHintsLeft, 5, 5, 5, 5));
+   fSubMaxInput = new TGNumberEntry(SubMaxXFrame, 0, 5, -1, TGNumberFormat::kNESReal, TGNumberFormat::kNEAAnyNumber);
+   fSubMaxInput->SetWidth(60);
+   SubMaxXFrame->AddFrame(fSubMaxInput, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+   hSubInputFrame->AddFrame(SubMaxXFrame, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hSubInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+
+
+   // Add a 3D horizontal line
+   TGHorizontal3DLine *hline3 = new TGHorizontal3DLine(vframe);
+   hline3->Resize(200, 1);  // Resize the line to be longer, 300px wide and 1px tall
+   vframe->AddFrame(hline3, new TGLayoutHints(kLHintsCenterX, 5, 5, 3, 4));
+   
+   // Final buttons
+   TGHorizontalFrame *hButsInputFrame = new TGHorizontalFrame(vframe, 200, 60);
+
+   // Add the Draw button
+   TGTextButton *draw = new TGTextButton(hButsInputFrame, "&Draw");
+   draw->SetMargins(10, 10, 7, 7);
+   draw->Connect("Clicked()", "MyMainFrame", this, "DoDraw()");
+   hButsInputFrame->AddFrame(draw, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5)); 
+
+   // Add the fit button
+   TGTextButton *fit = new TGTextButton(hButsInputFrame, "&Fit");
+   fit->SetMargins(10, 10, 7, 7);
+   fit->Connect("Clicked()", "MyMainFrame", this, "DoFit()");
+   hButsInputFrame->AddFrame(fit, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   // Add the subtract button
+   TGTextButton *sub = new TGTextButton(hButsInputFrame, "&Subtract");
+   sub->SetMargins(10, 10, 7, 7);
+   sub->Connect("Clicked()", "MyMainFrame", this, "DoSub()");
+   hButsInputFrame->AddFrame(sub, new TGLayoutHints(kLHintsCenterY, 5, 5, 5, 5));
+
+   vframe->AddFrame(hButsInputFrame, new TGLayoutHints(kLHintsCenterX, 5, 5, 5, 5));
+   
+   // Add to main frame
+   hframe->AddFrame(vframe, new TGLayoutHints(kLHintsCenterY, 2, 2, 2, 2));
+   fMain->AddFrame(hframe, new TGLayoutHints(kLHintsExpandX | kLHintsExpandY));
+
+   // Set a name to the main frame
+   fMain->SetWindowName("TTree Branch Selector");
+
+   // RangeFinder strings
+   drawConditionMissMass = "";
+   drawConditionMissMass2 = "";
+   std::string MissMassSubstr = "MissMass";
+   std::string two = "2";
+
+   // Populate the ComboBoxes with branch names and RangeFinder Part 1
+   if (fTree) {
+      TObjArray *branches = fTree->GetListOfBranches();
+      int num_of_branches = branches->GetEntries();
+      for (int i = 0; i < num_of_branches; i++) {
+         TBranch *branch = (TBranch*)branches->At(i);
+         std::string branchName = branch->GetName();
+         fComboBoxCont->AddEntry(branch->GetName(), i+1); // Add branches to ComboBox (index + 1)
+         fComboBoxDisc->AddEntry(branch->GetName(), i+1); // Add branches to ComboBox (index + 1)
+         cout << "Checking branch " << branchName << endl;
+         cout << "Subtr " << branchName.substr(0,8) << endl;
+         cout << "Character 8 " << branchName[8] << endl;
+         // RangeFinder Part 1
+         if (branchName.substr(0, 8) == "MissMass"){
+            cout << "RangeFinder activated." << endl;
+            if (branchName[8]==two){
+               cout << "Found branch " + branchName + ", range set -15 to 15 GeV." << endl;
+               drawConditionMissMass2 += TString::Format("%s > -15",branchName.c_str());
+               drawConditionMissMass2 += " && ";  // Separate values with a plus sign
+            } else{
+               cout << "Found branch " + branchName + ", range set to greater than 0 GeV." << endl;
+               drawConditionMissMass += TString::Format("%s > -15",branchName.c_str());
+               drawConditionMissMass += " && ";  // Separate values with a plus sign
+            }           
+         }
+      }
+   }
+
+   cout <<  "MissMass2 condtions applied to all branches are: " << endl;
+   drawConditionMissMass2.Remove(drawConditionMissMass2.Length()-4,4);
+   cout << drawConditionMissMass2 << endl;
+   cout <<  "MissMass condtions applied to all branches are: " << endl;
+   drawConditionMissMass.Remove(drawConditionMissMass.Length()-4,4);
+   cout << drawConditionMissMass << endl;
+
+   // Map all subwindows of main frame
+   fMain->MapSubwindows();
+
+   // Initialize the layout algorithm
+   fMain->Resize(fMain->GetDefaultSize());
+
+   // Map main frame
+   fMain->MapWindow();
+
+}
+
+
+void MyMainFrame::DoDraw() {
+
+   // Retrieve the selected branch from the first combo box (branch to draw)
+   if (fSelectedBranchDisc == -1) {
+      Error("DoDraw", "Error: No discriminating variable selected.");
+      return;
+   }
+   if (fSelectedBranchCont == -1) {
+      Error("DoDraw", "Error: No control variable selected.");
+      return;
+   }
+   
+   // Get the branch corresponding to the selected option
+   TBranch *branchDisc = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchDisc - 1); // fSelectedBranchDisc is 1-based
+   if (!branchDisc) {
+      Error("DoDraw", "Invalid selection.");
+      return;
+   }
+   string branchNameDisc = branchDisc->GetName();   
+   TBranch *branchCont = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchCont - 1); // fSelectedBranchCont is 1-based
+   if (!branchCont) {
+      Error("DoDraw", "Invalid selection.");
+      return;
+   }
+   string branchNameCont = branchCont->GetName();
+
+   // Retrieve the number of bins, min and max X values from the input boxes
+   Int_t fBinsDisc = fBinsEntryDisc->GetNumber();
+   Double_t fMinXDisc = fMinXEntryDisc->GetNumber();
+   Double_t fMaxXDisc = fMaxXEntryDisc->GetNumber();
+   
+   Int_t fBinsCont = fBinsEntryCont->GetNumber();
+   Double_t fMinXCont = fMinXEntryCont->GetNumber();
+   Double_t fMaxXCont = fMaxXEntryCont->GetNumber();
+
+   // Draw strings
+   TString drawCommandDisc = "";
+   TString drawTitleDisc = "Discriminating variable: ";
+
+   TString drawCommandCont = "";
+   TString drawTitleCont = "Control variable: ";
+
+   drawCommandDisc = TString::Format("%s>>hist1(%d,%f,%f)", branchNameDisc.c_str(), fBinsDisc, fMinXDisc, fMaxXDisc);
+   drawTitleDisc += branchNameDisc.c_str();
+
+   drawCommandCont = TString::Format("%s>>hist2(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont);
+   drawTitleCont += branchNameCont.c_str();
+
+   // RangeFinder - conditions imposed
+   TString drawConditionsAll = drawConditionMissMass + " && " + drawConditionMissMass2;
+
+   // Output print
+   std::cout << "////////  Drawn with following  ////////" << std::endl;
+   std::cout << "Discriminating variable: " << drawCommandDisc.Data() << std::endl;
+   std::cout << "Control variable: " << drawCommandCont.Data() << std::endl;
+   std::cout << "Conditions on all branches: " << drawConditionsAll << std::endl;
+
+   // Clear each pad before drawing new histograms
+   // Extended comment: The method below works because histograms being initliasied 
+   // and assigned for each branch on the tree rather than drawing the tree straight 
+   // to the canvas, this allows for interactivity of both graphs after they are plotted.
+   fCanvas->Clear();  // Clear the canvas to reset any changes
+   fCanvas->Divide(2, 1);  // Restore original pad layout (2 pads side-by-side)
+   
+   fCanvas->cd(1);
+   gPad->Clear();
+
+   // Defining and drawing first tree histogram
+   fTree->Draw(drawCommandDisc.Data(),drawConditionsAll);
+   TH1F *histDisc = (TH1F*)gDirectory->Get("hist1");
+   histDisc->SetTitle(drawTitleDisc.Data());
+   histDisc->SetStats(0);
+   fCanvas->cd(1);
+   histDisc->Draw("hist");
+   histDisc->SetMinimum(0);
+
+   fCanvas->cd(2);
+   gPad->Clear();
+
+   // Defining and drawing second tree histogram
+   fTree->Draw(drawCommandCont.Data(),drawConditionsAll);
+   TH1F *histCont = (TH1F*)gDirectory->Get("hist2");
+   histCont->SetTitle(drawTitleCont.Data());
+   fCanvas->cd(2);
+   histCont->Draw();
+   histCont->SetMinimum(0);
+
+   // Update the canvas to display the histograms
+   fCanvas->Update();
+
+}
+
+void MyMainFrame::DoFit() {
+
+   // Retrieve the selected branch from the first combo box (branch to draw)
+   if (fSelectedBranchDisc == -1) {
+      Error("DoFit", "Error: No discriminating variable selected.");
+      return;
+   }
+   if (fSelectedBranchCont == -1) {
+      Error("DoFit", "Error: No control variable selected.");
+      return;
+   }
+   
+   // Get the branch corresponding to the selected option
+   TBranch *branchDisc = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchDisc - 1); // fSelectedBranchDisc is 1-based
+   if (!branchDisc) {
+      Error("DoFit", "Invalid selection.");
+      return;
+   }
+   string branchNameDisc = branchDisc->GetName();   
+   TBranch *branchCont = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchCont - 1); // fSelectedBranchCont is 1-based
+   if (!branchCont) {
+      Error("DoFit", "Invalid selection.");
+      return;
+   }
+   string branchNameCont = branchCont->GetName();
+
+   // Retrieve the number of bins, min and max X values from the input boxes
+   Int_t fBinsDisc = fBinsEntryDisc->GetNumber();
+   Double_t fMinXDisc = fMinXEntryDisc->GetNumber();
+   Double_t fMaxXDisc = fMaxXEntryDisc->GetNumber();
+   Double_t fFitMin = fFitMinInput->GetNumber();
+   Double_t fFitMax = fFitMaxInput->GetNumber();
+   Double_t fSigMin = fSigMinInput->GetNumber();
+   Double_t fSigMax = fSigMaxInput->GetNumber();
+   Double_t fLSBMin = fLSBMinInput->GetNumber();
+   Double_t fLSBMax = fLSBMaxInput->GetNumber();
+   Double_t fRSBMin = fRSBMinInput->GetNumber();
+   Double_t fRSBMax = fRSBMaxInput->GetNumber();
+
+   Int_t fBinsCont = fBinsEntryCont->GetNumber();
+   Double_t fMinXCont = fMinXEntryCont->GetNumber();
+   Double_t fMaxXCont = fMaxXEntryCont->GetNumber();
+   Double_t fSubMin = fSubMinInput->GetNumber();
+   Double_t fSubMax = fSubMaxInput->GetNumber();
+
+   // Introducting autofit, a function that fits the discriminating variable using the total (poly+gauss) fit function
+   //                       for a given discriminating variable range (only requirement)
+   // Autofit is activated when disc range given and all other variables are zero (using differences might not work in some cases)
+   // Autofit fails when there no peaks or when two or more peaks are found.
+   // Note: consider autofit button at some point
+
+   int autofit_check = 0;
+
+   //// Checks
+   // Total failure check - if all variables or all differences zero, fail
+   if (fMaxXDisc==0 && fMinXDisc==0 && fFitMax==0 && fFitMin==0 && fSigMax==0 && fSigMin==0 && fLSBMax==0 && fLSBMin==0 && fRSBMax==0 && fRSBMin==0){
+      Error("DoFit", "Error: All variables are zero.\nChoose a discriminating variable range and fit to activate Autofit.");
+      return;
+   }
+   if (fMaxXDisc-fMinXDisc==0 && fFitMax-fFitMin==0 && fSigMax-fSigMin==0 && fLSBMax-fLSBMin==0 && fRSBMax-fRSBMin==0){
+      Error("DoFit", "Error: All ranges are zero.\nChoose non-zero discriminating variable, control variable and subtraction ranges and fit to activate Autofit.");
+      return;
+   }
+   // Discriminating variable range check - if discriminating variable range is zero, fail
+   if (fMaxXDisc-fMinXDisc==0){
+      Error("DoFit", "Error: Discriminating variable range must be provided.");
+         return;
+   }
+   // Autofit check - if discrimnating variable range is non-zero and all other variables are zero, activate autofit
+   if (fMaxXDisc-fMinXDisc!=0 && fFitMax==0 && fFitMin==0 && fSigMax==0 && fSigMin==0 && fLSBMax==0 && fLSBMin==0 && fRSBMax==0 && fRSBMin==0){
+      cout << "Autofit activated (non-zero discriminating variable, control variable and subtraction ranges, all other variables zero)." << endl;
+      autofit_check++;
+   }
+
+   // User variable failure - if all variables are non-zero but at least one has a difference of zero, fail 
+   if (fMaxXDisc-fMinXDisc!=0 && autofit_check==0){
+      // Fit range check
+      if (fFitMax-fFitMin==0) {
+         Error("DoFit", "Error: Fit range is zero.");
+         return;
+      }
+      // Signal region check
+      if (fSigMax-fSigMin==0) {
+         Error("DoFit", "Error: Signal region range is zero.");
+         return;
+      }
+      // Left sideband check
+      if (fLSBMax-fLSBMin==0) {
+         Error("DoFit", "Error: Left sideband range is zero.");
+         return;
+      }
+      // Right sideband check
+      if (fRSBMax-fRSBMin==0) {
+         Error("DoFit", "Error: Right sideband range is zero.");
+         return;
+      }
+   }
+
+   // Sideband-signal check - if sideband and signal overlap or if signal not between sidebands, fail
+   if (fLSBMax>fSigMin || fRSBMin<fSigMax && autofit_check==0){
+      Error("DoFit", "Error: Sideband-signal overlap or sidebands not around signal.");
+      return;
+   }
+
+   // Control variable range check - if control variable range is zero, fail
+   if (fMaxXCont-fMinXCont==0){
+      Error("DoFit", "Error: Control variable range must be provided.");
+      return;
+   }
+
+   // Subtraction range check - if subtraction range is zero, fail
+   if (fSubMax-fSubMin==0){
+      Error("DoFit", "Error: Subtraction range must be provided.");
+      return;
+   }
+
+   //// Draw strings
+   TString drawCommandDisc = "";
+   TString drawTitleDisc = "Discriminating variable: ";
+
+   TString drawCommandCont = "";
+   TString drawTitleCont = "Control variable: ";
+
+   drawCommandDisc = TString::Format("%s>>hist1(%d,%f,%f)", branchNameDisc.c_str(), fBinsDisc, fMinXDisc, fMaxXDisc);
+   drawTitleDisc += branchNameDisc.c_str();
+
+   drawCommandCont = TString::Format("%s>>hist2(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont);
+   drawTitleCont += branchNameCont.c_str();
+
+   // Output print
+   std::cout << "////////  Drawn with following  ////////" << std::endl;
+   std::cout << "Discriminating variable: " << drawCommandDisc.Data() << std::endl;
+   std::cout << "Control variable: " << drawCommandCont.Data() << std::endl;
+
+   //// Fitting
+   // Define histograms
+   fTree->Draw(drawCommandDisc.Data());
+   TH1F *histDisc = (TH1F*)gDirectory->Get("hist1");
+   fTree->Draw(drawCommandCont.Data());
+   TH1F *histCont = (TH1F*)gDirectory->Get("hist2");
+   // Define fit functions 
+   TF1 *fitFcn = nullptr;
+   TF1 *SIGfit = nullptr;
+   TF1 *BGfit = nullptr;
+   // Autofit (Welcome!)
+   if (autofit_check==1){
+      cout << "Autofit engaged" << endl;
+      // Set fit range equal to draw range
+      fFitMin = fMinXDisc;
+      fFitMax = fMaxXDisc;
+      // Fit function
+      fitFcn = new TF1("fitFcn",fitFunction,fFitMin,fFitMax,6);
+      double discRange = fMaxXDisc-fMinXDisc;
+      cout << "Disc range: " << discRange << endl;
+      double mean = discRange/2;
+      cout << "Mean: " << mean << endl;
+      double std = mean/10;
+      cout << "Standard deviation: " << std << endl;
+      fitFcn->SetParameters(1,1,0.1,500,mean,std);
+      fitFcn->SetLineColor(kViolet);
+      histDisc->Fit("fitFcn","R+");
+      // Diagnose fit function
+      double chi2_red = fitFcn->GetChisquare()/fitFcn->GetNDF();
+      if (chi2_red>3) {
+         std::cout << "Error: Fit failed (reduced chi2 is greater than three).\nTry changing discriminating variable range." << std::endl;
+      }
+      // Signal fit function
+      SIGfit = new TF1("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fFitMin,fFitMax);
+      SIGfit->SetParameter(0,fitFcn->GetParameter(3));
+      SIGfit->SetParameter(1,fitFcn->GetParameter(4));
+      SIGfit->SetParameter(2,fitFcn->GetParameter(5));
+      // Background fit function
+      BGfit = new TF1("BGfit","[0]+[1]*x+[2]*x**2",fFitMin,fFitMax);
+      BGfit->SetParameter(0,fitFcn->GetParameter(0));
+      BGfit->SetParameter(1,fitFcn->GetParameter(1));
+      BGfit->SetParameter(2,fitFcn->GetParameter(2));
+      // Define signal region
+      int std_num = std::floor(discRange/(abs(fitFcn->GetParameter(5)))); // number of standard deviations in disc range
+      int std_per_reg = std::floor(std_num/3); // number of standard deviations allowed per signal, sideband regions
+      if (std_per_reg>3){
+         std_per_reg=3;
+      }
+      fSigMin = abs(fitFcn->GetParameter(4))-((std_per_reg*abs(fitFcn->GetParameter(5))));
+      fSigMax = abs(fitFcn->GetParameter(4))+((std_per_reg*abs(fitFcn->GetParameter(5))));
+      // Define sideband regions
+      fLSBMin = fSigMin-((std_per_reg+0.5)*abs(fitFcn->GetParameter(5)));
+      if (fLSBMin<fMinXDisc){
+         fLSBMin=fMinXDisc;
+      }
+      fLSBMax = fSigMin-(0.5*abs(fitFcn->GetParameter(5)));
+      fRSBMin = fSigMax+(0.5*abs(fitFcn->GetParameter(5)));
+      fRSBMax = fSigMax+((std_per_reg+0.5)*abs(fitFcn->GetParameter(5)));
+      if (fRSBMax>fMaxXDisc){
+         fRSBMax=fMaxXDisc;
+      }
+      fSigMinInput->SetNumber(fSigMin);
+      fSigMaxInput->SetNumber(fSigMax);
+      fFitMinInput->SetNumber(fFitMin);
+      fFitMaxInput->SetNumber(fFitMax);
+      fLSBMinInput->SetNumber(fLSBMin);
+      fLSBMaxInput->SetNumber(fLSBMax);
+      fRSBMinInput->SetNumber(fRSBMin);
+      fRSBMaxInput->SetNumber(fRSBMax);
+   } else{  
+      // User-inputted fit
+      // Fit function
+      fitFcn = new TF1("fitFcn",fitFunction,fFitMin,fFitMax,6);
+      double mean = (fFitMax-fFitMin)/2;
+      double std = mean/10;
+      fitFcn->SetParameters(1,1,0.1,500,mean,std);
+      fitFcn->SetLineColor(kViolet);
+      histDisc->Fit("fitFcn","R+");
+      // Diagnose fit function
+      double chi2_red = fitFcn->GetChisquare()/fitFcn->GetNDF();
+      if (chi2_red>3) {
+         std::cout << "Errot: Fit failed (reduced chi2 is greater than three).\nTry changing discriminating variable range." << std::endl;
+      }
+      // Signal fit function
+      SIGfit = new TF1("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fFitMin,fFitMax);
+      SIGfit->SetParameter(0,fitFcn->GetParameter(3));
+      SIGfit->SetParameter(1,fitFcn->GetParameter(4));
+      SIGfit->SetParameter(2,fitFcn->GetParameter(5));
+      // Background fit function
+      BGfit = new TF1("BGfit","[0]+[1]*x+[2]*x**2",fFitMin,fFitMax);
+      BGfit->SetParameter(0,fitFcn->GetParameter(0));
+      BGfit->SetParameter(1,fitFcn->GetParameter(1));
+      BGfit->SetParameter(2,fitFcn->GetParameter(2));
+   }
+
+   //// Drawing
+   // Clear each pad before drawing new histograms
+   fCanvas->Clear();
+   fCanvas->Divide(2, 1);   
+   // Pad 1
+   fCanvas->cd(1);
+   gPad->Clear();
+   histDisc->SetTitle(drawTitleDisc.Data());
+   histDisc->SetStats(0);
+   histDisc->Draw();
+   // Patterned histograms
+   TH1* histDisc_cln1 = (TH1*)histDisc->Clone();
+   histDisc_cln1->GetXaxis()->SetRangeUser(fLSBMin,fLSBMax);
+   histDisc_cln1->SetFillColor(kAzure+7);
+   histDisc_cln1->SetFillStyle(3354);
+   TH1* histDisc_cln2 = (TH1*)histDisc->Clone();
+   histDisc_cln2->GetXaxis()->SetRangeUser(fRSBMin,fRSBMax);
+   histDisc_cln2->SetFillColor(kAzure+7);
+   histDisc_cln2->SetFillStyle(3354);
+   TH1* histDisc_cln3 = (TH1*)histDisc->Clone();
+   histDisc_cln3->GetXaxis()->SetRangeUser(fSigMin,fSigMax);
+   histDisc_cln3->SetFillColor(kOrange-3);
+   histDisc_cln3->SetFillStyle(3354);
+   // Draw patterned histograms
+   histDisc_cln1->DrawCopy("same");
+   histDisc_cln2->DrawCopy("same");
+   histDisc_cln3->DrawCopy("same");
+   // histDisc
+   histDisc->DrawCopy("same");
+   // Total fit function
+   fitFcn->DrawCopy("same");
+   fitFcn->SetLineColor(kViolet);
+   // Signal fit function
+   SIGfit->SetLineColor(kRed);
+   SIGfit->DrawCopy("same");
+   // Background fit function
+   BGfit->SetLineColor(kBlue);
+   BGfit->DrawCopy("same");
+   // Sideband regions
+   double sb_L_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fLSBMax))*0.50 + histDisc->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
+   double sb_R_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fRSBMax))*0.50 + histDisc->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
+   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
+   sb_L_l->SetLineWidth(2);
+   sb_L_l->Draw();
+   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
+   sb_L_u->SetLineWidth(2);
+   sb_L_u->Draw();
+   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
+   sb_R_l->SetLineWidth(2);
+   sb_R_l->Draw();
+   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
+   sb_R_u->SetLineWidth(2);
+   sb_R_u->Draw();
+   histDisc->SetMinimum(0);
+   // Signal fit info box
+   TString SIGfit_str = Form("#splitline{Signal fit info}{#splitline{#mu: %.5g}{#sigma: %.5g}}", abs(fitFcn->GetParameter(4)), abs(fitFcn->GetParameter(5)));
+   TPaveText* SIGfit_txt = new TPaveText(.7,.8,.9,.9,"brNDC");
+   SIGfit_txt->SetFillColor(0);
+   SIGfit_txt->SetBorderSize(1);
+   SIGfit_txt->SetTextSize(0.025);
+   SIGfit_txt->AddText(SIGfit_str);
+   SIGfit_txt->DrawClone("Same");
+   // Pad 2
+   fCanvas->cd(2);
+   gPad->Clear();
+   histCont->Draw("hist");
+   TH1* histCont_cln = (TH1*)histCont->Clone();
+   histCont_cln->GetXaxis()->SetRangeUser(fSubMin,fSubMax);
+   histCont_cln->SetFillColor(kOrange-3);
+   histCont_cln->SetFillStyle(3354);
+   histCont_cln->DrawCopy("same");
+   histCont->DrawCopy("same");
+   histCont->SetTitle(drawTitleCont.Data());
+   histCont->SetMinimum(0);
+   histCont->GetXaxis()->SetRangeUser(fMinXCont,fMaxXCont);
+   // Update the canvas to display the histograms
+   fCanvas->Update();
+}
+
+void MyMainFrame::DoSub() {
+
+   // Retrieve the selected branch from the first combo box (branch to draw)
+   if (fSelectedBranchDisc == -1) {
+      Error("DoSub", "Error: No discriminating variable selected.");
+      return;
+   }
+   if (fSelectedBranchCont == -1) {
+      Error("DoSub", "Error: No control variable selected.");
+      return;
+   }
+   
+   // Get the branch corresponding to the selected option
+   TBranch *branchDisc = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchDisc - 1); // fSelectedBranchDisc is 1-based
+   if (!branchDisc) {
+      Error("DoSub", "Invalid selection.");
+      return;
+   }
+   string branchNameDisc = branchDisc->GetName();   
+   TBranch *branchCont = (TBranch*)fTree->GetListOfBranches()->At(fSelectedBranchCont - 1); // fSelectedBranchCont is 1-based
+   if (!branchCont) {
+      Error("DoSub", "Invalid selection.");
+      return;
+   }
+   string branchNameCont = branchCont->GetName();
+
+   // Retrieve the number of bins, min and max X values from the input boxes
+   Int_t fBinsDisc = fBinsEntryDisc->GetNumber();
+   Double_t fMinXDisc = fMinXEntryDisc->GetNumber();
+   Double_t fMaxXDisc = fMaxXEntryDisc->GetNumber();
+   Double_t fFitMin = fFitMinInput->GetNumber();
+   Double_t fFitMax = fFitMaxInput->GetNumber();
+   Double_t fSigMin = fSigMinInput->GetNumber();
+   Double_t fSigMax = fSigMaxInput->GetNumber();
+   Double_t fLSBMin = fLSBMinInput->GetNumber();
+   Double_t fLSBMax = fLSBMaxInput->GetNumber();
+   Double_t fRSBMin = fRSBMinInput->GetNumber();
+   Double_t fRSBMax = fRSBMaxInput->GetNumber();
+
+   Int_t fBinsCont = fBinsEntryCont->GetNumber();
+   Double_t fMinXCont = fMinXEntryCont->GetNumber();
+   Double_t fMaxXCont = fMaxXEntryCont->GetNumber();
+   Double_t fSubMin = fSubMinInput->GetNumber();
+   Double_t fSubMax = fSubMaxInput->GetNumber();
+
+   // Introducting autofit, a function that fits the discriminating variable using the total (poly+gauss) fit function
+   //                       for a given discriminating variable range (only requirement)
+   // Autofit is activated when disc range given and all other variables are zero (using differences might not work in some cases)
+   // Autofit fails when there no peaks or when two or more peaks are found.
+   // Note: consider autofit button at some point
+
+   int autofit_check = 0;
+
+   //// Checks
+   // Total failure check - if all variables or all differences zero, fail
+   if (fMaxXDisc==0 && fMinXDisc==0 && fFitMax==0 && fFitMin==0 && fSigMax==0 && fSigMin==0 && fLSBMax==0 && fLSBMin==0 && fRSBMax==0 && fRSBMin==0){
+      Error("DoSub", "Error: All variables are zero.\nChoose a discriminating variable range and fit to activate Autofit.");
+      return;
+   }
+   if (fMaxXDisc-fMinXDisc==0 && fFitMax-fFitMin==0 && fSigMax-fSigMin==0 && fLSBMax-fLSBMin==0 && fRSBMax-fRSBMin==0){
+      Error("DoSub", "Error: All ranges are zero.\nChoose a non-zero discriminating variable range and fit to activate Autofit.");
+      return;
+   }
+   // Discriminating variable range check - if discriminating variable range is zero, fail
+   if (fMaxXDisc-fMinXDisc==0){
+      Error("DoSub", "Error: Discriminating variable range must be provided.");
+         return;
+   }
+   // Autofit check - if discrimnating variable range is non-zero and all other variables are zero, activate autofit
+   if (fMaxXDisc-fMinXDisc!=0 && fFitMax==0 && fFitMin==0 && fSigMax==0 && fSigMin==0 && fLSBMax==0 && fLSBMin==0 && fRSBMax==0 && fRSBMin==0){
+      cout << "Autofit activated (discrimnating variable range provided and all other variables zero)." << endl;
+      autofit_check++;
+   }
+
+   // User variable failure - if all variables are non-zero but at least one has a difference of zero, fail 
+   if (fMaxXDisc-fMinXDisc!=0 && autofit_check==0){
+      // Fit range check
+      if (fFitMax-fFitMin==0) {
+         Error("DoSub", "Error: Fit range is zero.");
+         return;
+      }
+      // Signal region check
+      if (fSigMax-fSigMin==0) {
+         Error("DoSub", "Error: Signal region range is zero.");
+         return;
+      }
+      // Left sideband check
+      if (fLSBMax-fLSBMin==0) {
+         Error("DoSub", "Error: Left sideband range is zero.");
+         return;
+      }
+      // Right sideband check
+      if (fRSBMax-fRSBMin==0) {
+         Error("DoSub", "Error: Right sideband range is zero.");
+         return;
+      }
+   }
+
+   // Sideband-signal check - if sideband and signal overlap or if signal not between sidebands, fail
+   if (fLSBMax>fSigMin || fRSBMin<fSigMax && autofit_check==0){
+      Error("DoSub", "Error: Sideband-signal overlap or sidebands not around signal.");
+      return;
+   }
+
+   // Control variable range check - if control variable range is zero, fail
+   if (fMaxXCont-fMinXCont==0){
+      Error("DoSub", "Error: Control variable range must be provided.");
+      return;
+   }
+
+   // Subtraction range check - if subtraction range is zero, fail
+   if (fSubMax-fSubMin==0){
+      Error("DoSub", "Error: Subtraction range must be provided.");
+      return;
+   }
+
+   //// Draw strings
+   TString drawCommandDisc = "";
+   TString drawTitleDisc = "Discriminating variable: ";
+
+   TString drawCommandCont = "";
+   TString drawTitleCont = "Control variable: ";
+
+   drawCommandDisc = TString::Format("%s>>hist1(%d,%f,%f)", branchNameDisc.c_str(), fBinsDisc, fMinXDisc, fMaxXDisc);
+   drawTitleDisc += branchNameDisc.c_str();
+
+   drawCommandCont = TString::Format("%s>>hist2(%d,%f,%f)", branchNameCont.c_str(), fBinsCont, fMinXCont, fMaxXCont);
+   drawTitleCont += branchNameCont.c_str();
+
+   // Output print
+   std::cout << "////////  Drawn with following  ////////" << std::endl;
+   std::cout << "Discriminating variable: " << drawCommandDisc.Data() << std::endl;
+   std::cout << "Control variable: " << drawCommandCont.Data() << std::endl;
+
+   //// Fitting and sideband subtraction
+   // Define fit functions and weight
+   TF1 *fitFcn = nullptr;
+   TF1 *SIGfit = nullptr;
+   TF1 *BGfit = nullptr;
+   double sig_wgt;
+   // Define histograms
+   fTree->Draw(drawCommandDisc.Data());
+   TH1F *histDisc = (TH1F*)gDirectory->Get("hist1");
+   fTree->Draw(drawCommandCont.Data());
+   TH1F *histCont = (TH1F*)gDirectory->Get("hist2");
+   TH1F *histSIG = nullptr;
+   TH1F *histSB = nullptr;
+   // Autofit (Welcome!)
+   if (autofit_check==1){
+      cout << "Autofit engaged" << endl;
+      // Set fit range equal to draw range
+      fFitMin = fMinXDisc;
+      fFitMax = fMaxXDisc;
+      // Fit function
+      fitFcn = new TF1("fitFcn",fitFunction,fFitMin,fFitMax,6);
+      double discRange = fMaxXDisc-fMinXDisc;
+      cout << "Disc range: " << discRange << endl;
+      double mean = discRange/2;
+      cout << "Mean: " << mean << endl;
+      double std = mean/10;
+      cout << "Standard deviation: " << std << endl;
+      fitFcn->SetParameters(1,1,0.1,500,mean,std);
+      fitFcn->SetLineColor(kViolet);
+      histDisc->Fit("fitFcn","R+");
+      // Diagnose fit function
+      double chi2_red = fitFcn->GetChisquare()/fitFcn->GetNDF();
+      if (chi2_red>3) {
+         std::cout << "Errot: Fit failed (reduced chi2 is greater than three).\nTry changing discriminating variable range." << std::endl;
+      }
+      // Signal fit function
+      SIGfit = new TF1("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fFitMin,fFitMax);
+      SIGfit->SetParameter(0,fitFcn->GetParameter(3));
+      SIGfit->SetParameter(1,fitFcn->GetParameter(4));
+      SIGfit->SetParameter(2,fitFcn->GetParameter(5));
+      // Background fit function
+      BGfit = new TF1("BGfit","[0]+[1]*x+[2]*x**2",fFitMin,fFitMax);
+      BGfit->SetParameter(0,fitFcn->GetParameter(0));
+      BGfit->SetParameter(1,fitFcn->GetParameter(1));
+      BGfit->SetParameter(2,fitFcn->GetParameter(2));
+      // Define signal region
+      int std_num = std::floor(discRange/(abs(fitFcn->GetParameter(5)))); // number of standard deviations in disc range
+      int std_per_reg = std::floor(std_num/3); // number of standard deviations allowed per signal, sideband regions
+      if (std_per_reg>3){
+         std_per_reg=3;
+      }
+      fSigMin = abs(fitFcn->GetParameter(4))-((std_per_reg*abs(fitFcn->GetParameter(5))));
+      fSigMax = abs(fitFcn->GetParameter(4))+((std_per_reg*abs(fitFcn->GetParameter(5))));
+      // Define sideband regions
+      fLSBMin = fSigMin-((std_per_reg+0.5)*abs(fitFcn->GetParameter(5)));
+      if (fLSBMin<fMinXDisc){
+         fLSBMin=fMinXDisc;
+      }
+      fLSBMax = fSigMin-(0.5*abs(fitFcn->GetParameter(5)));
+      fRSBMin = fSigMax+(0.5*abs(fitFcn->GetParameter(5)));
+      fRSBMax = fSigMax+((std_per_reg+0.5)*abs(fitFcn->GetParameter(5)));
+      if (fRSBMax>fMaxXDisc){
+         fRSBMax=fMaxXDisc;
+      }
+      if (fLSBMax>fSigMin || fRSBMin<fSigMax && autofit_check==0){
+         Error("DoSub", "Error: Sideband-signal overlap or sidebands not around signal.");
+         return;
+      }
+      fSigMinInput->SetNumber(fSigMin);
+      fSigMaxInput->SetNumber(fSigMax);
+      fFitMinInput->SetNumber(fFitMin);
+      fFitMaxInput->SetNumber(fFitMax);
+      fLSBMinInput->SetNumber(fLSBMin);
+      fLSBMaxInput->SetNumber(fLSBMax);
+      fRSBMinInput->SetNumber(fRSBMin);
+      fRSBMaxInput->SetNumber(fRSBMax);
+      // Define histograms
+      TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
+      TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
+      TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
+      TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
+      fTree->Draw(drawCommandSIG,SIGcond);
+      histSIG = (TH1F*)gDirectory->Get("histSIG");
+      fTree->Draw(drawCommandBG,BGcond);
+      histSB = (TH1F*)gDirectory->Get("histSB");
+      // Weight computation
+      double SIG_Int = BGfit->Integral(fSigMin,fSigMax);
+      double LSB_Int = BGfit->Integral(fLSBMin,fLSBMax);
+      double RSB_Int = BGfit->Integral(fRSBMin,fRSBMax);
+      sig_wgt = SIG_Int/(LSB_Int+RSB_Int);
+   } else{
+      // User-inputted fit
+      // Fit function
+      fitFcn = new TF1("fitFcn",fitFunction,fFitMin,fFitMax,6);
+      double mean = (fFitMax-fFitMin)/2;
+      double std = mean/10;
+      fitFcn->SetParameters(1,1,0.1,500,mean,std);
+      fitFcn->SetLineColor(kViolet);
+      histDisc->Fit("fitFcn","R+");
+      // Diagnose fit function
+      double chi2_red = fitFcn->GetChisquare()/fitFcn->GetNDF();
+      if (chi2_red>3) {
+         std::cout << "Errot: Fit failed (reduced chi2 is greater than three).\nTry changing discriminating variable range." << std::endl;
+      }
+      // Signal fit function
+      SIGfit = new TF1("SIGfit","[0]*TMath::Gaus(x,[1],[2])",fFitMin,fFitMax);
+      SIGfit->SetParameter(0,fitFcn->GetParameter(3));
+      SIGfit->SetParameter(1,fitFcn->GetParameter(4));
+      SIGfit->SetParameter(2,fitFcn->GetParameter(5));
+      // Background fit function
+      BGfit = new TF1("BGfit","[0]+[1]*x+[2]*x**2",fFitMin,fFitMax);
+      BGfit->SetParameter(0,fitFcn->GetParameter(0));
+      BGfit->SetParameter(1,fitFcn->GetParameter(1));
+      BGfit->SetParameter(2,fitFcn->GetParameter(2));
+      // Define histograms
+      TString drawCommandSIG = TString::Format("%s>>histSIG(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax); 
+      TString SIGcond = Form("%s>%.10g && %s<%.10g",branchNameDisc.c_str(),fSigMin,branchNameDisc.c_str(),fSigMax);
+      TString drawCommandBG = TString::Format("%s>>histSB(%d,%f,%f)", branchNameCont.c_str(), fBinsCont,fSubMin,fSubMax);
+      TString BGcond = Form("%s>%.10g && %s<%.10g || %s>%.10g && %s<%.10g",branchNameDisc.c_str(),fLSBMin,branchNameDisc.c_str(),fLSBMax,branchNameDisc.c_str(),fRSBMin,branchNameDisc.c_str(),fRSBMax);
+      fTree->Draw(drawCommandSIG,SIGcond);
+      histSIG = (TH1F*)gDirectory->Get("histSIG");
+      fTree->Draw(drawCommandBG,BGcond);
+      histSB = (TH1F*)gDirectory->Get("histSB");
+      // Weight computation
+      double SIG_Int = BGfit->Integral(fSigMin,fSigMax);
+      double LSB_Int = BGfit->Integral(fLSBMin,fLSBMax);
+      double RSB_Int = BGfit->Integral(fRSBMin,fRSBMax);
+      sig_wgt = SIG_Int/(LSB_Int+RSB_Int);
+   }
+
+   //// Drawing
+   // Clear each pad before drawing new histograms
+   fCanvas->Clear();
+   fCanvas->Divide(2, 1);   
+   // Pad 1
+   fCanvas->cd(1);
+   gPad->Clear();
+   histDisc->SetTitle(drawTitleDisc.Data());
+   histDisc->SetStats(0);
+   histDisc->Draw();
+   // Patterned histograms
+   TH1* histDisc_cln1 = (TH1*)histDisc->Clone();
+   histDisc_cln1->GetXaxis()->SetRangeUser(fLSBMin,fLSBMax);
+   histDisc_cln1->SetFillColor(kAzure+7);
+   histDisc_cln1->SetFillStyle(3354);
+   TH1* histDisc_cln2 = (TH1*)histDisc->Clone();
+   histDisc_cln2->GetXaxis()->SetRangeUser(fRSBMin,fRSBMax);
+   histDisc_cln2->SetFillColor(kAzure+7);
+   histDisc_cln2->SetFillStyle(3354);
+   TH1* histDisc_cln3 = (TH1*)histDisc->Clone();
+   histDisc_cln3->GetXaxis()->SetRangeUser(fSigMin,fSigMax);
+   histDisc_cln3->SetFillColor(kOrange-3);
+   histDisc_cln3->SetFillStyle(3354);
+   // Draw patterned histograms
+   histDisc_cln1->DrawCopy("same");
+   histDisc_cln2->DrawCopy("same");
+   histDisc_cln3->DrawCopy("same");
+   // histDisc
+   histDisc->DrawCopy("same");
+   // Total fit function
+   fitFcn->DrawCopy("same");
+   fitFcn->SetLineColor(kViolet);
+   // Signal fit function
+   SIGfit->SetLineColor(kRed);
+   SIGfit->DrawCopy("same");
+   // Background fit function
+   BGfit->SetLineColor(kBlue);
+   BGfit->DrawCopy("same");
+   // Sideband regions
+   double sb_L_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fLSBMax))*0.50 + histDisc->GetBinContent(fLSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
+   double sb_R_y = (histDisc->GetBinContent(histDisc->GetMaximumBin())-histDisc->GetBinContent(fRSBMax))*0.50 + histDisc->GetBinContent(fRSBMax); // sb_L_y is 1/4 (updwards from bin at fLSBMax) Discance betwwen bin at fLSBMax and max y-axis coordiante
+   TLine *sb_L_l = new TLine(fLSBMin,0,fLSBMin,sb_L_y);
+   sb_L_l->SetLineWidth(2);
+   sb_L_l->Draw();
+   TLine *sb_L_u = new TLine(fLSBMax,0,fLSBMax,sb_L_y);
+   sb_L_u->SetLineWidth(2);
+   sb_L_u->Draw();
+   TLine *sb_R_l = new TLine(fRSBMin,0,fRSBMin,sb_R_y);
+   sb_R_l->SetLineWidth(2);
+   sb_R_l->Draw();
+   TLine *sb_R_u = new TLine(fRSBMax,0,fRSBMax,sb_R_y);
+   sb_R_u->SetLineWidth(2);
+   sb_R_u->Draw();
+   histDisc->SetMinimum(0);
+   // Signal fit info box
+   TString SIGfit_str = Form("#splitline{Signal fit info}{#splitline{#mu: %.5g}{#sigma: %.5g}}", abs(fitFcn->GetParameter(4)), abs(fitFcn->GetParameter(5)));
+   TPaveText* SIGfit_txt = new TPaveText(.7,.8,.9,.9,"brNDC");
+   SIGfit_txt->SetFillColor(0);
+   SIGfit_txt->SetBorderSize(1);
+   SIGfit_txt->SetTextSize(0.025);
+   SIGfit_txt->AddText(SIGfit_str);
+   SIGfit_txt->DrawClone("Same");
+   // Pad 2
+   fCanvas->cd(2);
+   gPad->Clear();
+   // Empty histogram with control variable range
+   //histCont->Draw("hist");
+   // Sideband subtraction
+   histSIG->Add(histSB,-sig_wgt);
+   histSIG->Draw("hist");
+   histSIG->GetXaxis()->SetRangeUser(fMinXCont,fMaxXCont);
+   histSIG->SetTitle(drawTitleCont.Data());
+   gPad->Modified();
+   gPad->Update();
+   // Update the canvas to display the histograms
+   fCanvas->Update();
+
+}
+
+void MyMainFrame::OnSelectDisc(Int_t id) {
+   fSelectedBranchDisc = id;
+
+}
+
+void MyMainFrame::OnSelectCont(Int_t id) {
+   fSelectedBranchCont = id;
+}
+
+
+MyMainFrame::~MyMainFrame() {
+   // Clean up used widgets: frames, buttons, layout hints
+   fMain->Cleanup();
+   delete fMain;
+   if (fFile1) {
+      fFile1->Close();
+      delete fFile1;
+   }
+}
+
+void sbSubRfGUI(const char* filename1) {
+   // Popup the GUI with the given ROOT file...
+   new MyMainFrame(gClient->GetRoot(), 1400, 700, filename1);
+}

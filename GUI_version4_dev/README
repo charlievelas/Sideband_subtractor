@@ -1,0 +1,7 @@
+In this version I'm introducing RangeFinder (RF) and SaveAllBranches (SAB).
+
+RangeFinder ensures that 99% (this may be changed) of data is saved to a tree or histogram within a suitable range i.e. there are not an excess of empty bins.
+
+SaveAllBranches saves all of the branch variables which have undergone sideband subtraction to a tree which is saved to a root file.
+
+
