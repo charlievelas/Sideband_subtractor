@@ -35,7 +35,7 @@ void distributions_mkr(){
     TRandom3 randGen;
     TF1 thetaBG("thetaBG","TMath::Exp(-0.06*x)",0,50);
     TF1 phiSIG("phiSIG","TMath::Sin(x)",-30,30);
-    TF1 phiBG("phiBG","TMath::Sin(x+1.64)",-30,30);
+    TF1 phiBG("phiBG","0.1*TMath::Sin((x)+1.64)+2",0,15);
     TF1 massBG("massBG","x",0,10);
     
     for (int indx=0; indx<num_of_evns; indx++){
@@ -46,7 +46,8 @@ void distributions_mkr(){
             pzSIGhist->Fill(pz);
             theta=abs(randGen.Gaus(15,10));
             thetaSIGhist->Fill(theta);
-            phi=randGen.Gaus(10,2);
+            phi=(2*mass)+2;
+            //phi=randGen.Gaus(7,2);
             //phi=phiSIG.GetRandom();
             phiSIGhist->Fill(phi);
             SIG=1;

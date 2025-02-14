@@ -6,7 +6,7 @@
 // Fit functions
 // Background - Quadratic background function
 double Background(double *x, double *par) {
-    return par[0] + par[1]*x[0];
+    return par[0] + par[1]*x[0] + par[2]*x[0]*x[0];
 }
 // Signal - Gauss Peak function
 double GaussPeak(double *x, double *par) {
@@ -14,7 +14,7 @@ double GaussPeak(double *x, double *par) {
 }
 // Sum of background and peak function
 double fitFunction(double *x, double *par) {
-    return Background(x,par) + GaussPeak(x,&par[2]);
+    return Background(x,par) + GaussPeak(x,&par[3]);
     //&par[5] is where the guass parameters start in the length-8 'par' array containing the parameters for the background and the peak
 }
 
@@ -41,20 +41,20 @@ void sb_subtractor(){
     */
 
     // Load file, tree, branches and distributions
-    TFile infile("distributions_uniform.root");
+    TFile infile("distributions.root");
     TTree *tree = (TTree*)infile.Get(infile.GetListOfKeys()->At(0)->GetName());
     double mass;
-    int massAIndx;
-    int massBIndx;
     double pz;
-    int pzAIndx;
-    int pzBIndx;
+    double theta;
+    double phi;
+    int SIG;
+    int BG;
     tree->Branch("mass",&mass);
-    tree->Branch("massAIndx",&massAIndx);
-    tree->Branch("massBIndx",&massBIndx);
     tree->Branch("pz",&pz);
-    tree->Branch("pzAIndx",&pzAIndx);
-    tree->Branch("pzBIndx",&pzBIndx);
+    tree->Branch("theta",&theta);
+    tree->Branch("phi",&phi);
+    tree->Branch("SIG",&SIG);
+    tree->Branch("BG",&BG);
 
     // Define sideband and signal regions, example values included
     double sb_left_lower = 0.5;
@@ -81,19 +81,20 @@ void sb_subtractor(){
     tree->Draw("pz>>hist2sub(100,-5,5)",hist23cond); 
     TH1F *hist2sub = (TH1F*)gDirectory->Get("hist2sub");
     // Fit function
-    TF1 *fitFcn = new TF1("fitFcn",fitFunction,0,10,5);
-    fitFcn->SetParameters(1,1,1,5,0.5);
+    TF1 *fitFcn = new TF1("fitFcn",fitFunction,0,10,6);
+    fitFcn->SetParameters(1,1,0.1,500,5,0.5);
     fitFcn->SetLineColor(kViolet);
     hist0->Fit("fitFcn","R+");
     // Signal fit function
     TF1 SIGfit("SIGfit","[0]*TMath::Gaus(x,[1],[2])",0,10);
-    SIGfit.SetParameter(0,fitFcn->GetParameter(2));
-    SIGfit.SetParameter(1,fitFcn->GetParameter(3));
-    SIGfit.SetParameter(2,fitFcn->GetParameter(4));
+    SIGfit.SetParameter(0,fitFcn->GetParameter(3));
+    SIGfit.SetParameter(1,fitFcn->GetParameter(4));
+    SIGfit.SetParameter(2,fitFcn->GetParameter(5));
     // Background fit function
-    TF1 BGfit("BGfit","[0]+[1]*x",0,10);
+    TF1 BGfit("BGfit","[0]+[1]*x+[2]*x**2",0,10);
     BGfit.SetParameter(0,fitFcn->GetParameter(0));
     BGfit.SetParameter(1,fitFcn->GetParameter(1));
+    BGfit.SetParameter(2,fitFcn->GetParameter(2));
     // Weight computation
     double SIG_Int = BGfit.Integral(sig_lower,sig_upper);
     double LSB_Int = BGfit.Integral(sb_left_lower,sb_left_upper);
@@ -103,7 +104,7 @@ void sb_subtractor(){
     hist2sub->Add(hist1,-sig_wgt);
 
     // Create output file
-    TFile outfile("sb_subtractor_v1_Hists.root", "recreate");
+    TFile outfile("sb_subtractor_Hists.root", "recreate");
 
     // Save histograms to outfile
     hist0->Write();
@@ -114,15 +115,15 @@ void sb_subtractor(){
     //// Ttrees
     tree->Draw("mass>>histmass(100,0,10)");
     TH1F *histmass = (TH1F*)gDirectory->Get("histmass");
-    tree->Draw("mass>>histmassA(100,0,10)","massAIndx==1");
+    tree->Draw("mass>>histmassA(100,0,10)","SIG==1");
     TH1F *histmassA = (TH1F*)gDirectory->Get("histmassA");
-    tree->Draw("mass>>histmassB(100,0,10)","massBIndx==1");
+    tree->Draw("mass>>histmassB(100,0,10)","BG==1");
     TH1F *histmassB = (TH1F*)gDirectory->Get("histmassB");
     tree->Draw("pz>>histpz(100,-5,5)");
     TH1F *histpz = (TH1F*)gDirectory->Get("histpz");
-    tree->Draw("pz>>histpzA(100,-5,5)","pzAIndx==1");
+    tree->Draw("pz>>histpzA(100,-5,5)","SIG==1");
     TH1F *histpzA = (TH1F*)gDirectory->Get("histpzA");
-    tree->Draw("pz>>histpzB(100,-5,5)","pzBIndx==1");
+    tree->Draw("pz>>histpzB(100,-5,5)","BG==1");
     TH1F *histpzB = (TH1F*)gDirectory->Get("histpzB");
     //////// Main canvas
     TCanvas *canvas1 = new TCanvas("canvas1","canvas1",1800,900);
@@ -226,67 +227,24 @@ void sb_subtractor(){
     leg3.AddEntry(histpzA,"pz - signal");
     leg3.AddEntry(histpzB,"pz - background");
     leg3.DrawClone("Same");
+    histpz->SetTitle("pz");
     // Pad 4
     canvas1->cd(4);
-    histpz->SetTitle("pz - sideband subtracted");
-    histpz->SetStats(0);
-    histpz->Draw("hist");
+    TH1* histpz_cln = (TH1*)histpz->Clone();
+    histpz_cln->SetTitle("pz - sideband subtracted");
+    histpz_cln->SetStats(0);
+    histpz_cln->Draw("hist");
     histpzA->DrawCopy("same");
     hist2sub->SetLineColor(kViolet);
     hist2sub->DrawCopy("same");
     TLegend leg4(.1,.7,.3,.9,"");
     leg4.SetFillColor(0);
-    leg4.AddEntry(histpz,"pz");
+    leg4.AddEntry(histpz_cln,"pz");
     leg4.AddEntry(histpzA,"pz - signal");
     leg4.AddEntry(hist2sub,"pz - sideband subtracted");
     leg4.DrawClone("Same");
     //// Print canvas
     canvas1->Print("canvas1.root");
-
-
-/*
-    //////// Main canvas
-    //// Pad 1
-    TCanvas *canvas1a = new TCanvas("canvas1a","canvas1a",800,800);
-    hist0->Draw("hist");
-    // Total fit function
-    fitFcn->DrawCopy("same");
-    fitFcn->SetLineColor(kViolet);
-    // Signal fit function
-    SIGfit.SetLineColor(kRed);
-    SIGfit.DrawCopy("same");
-    // Background fit function
-    BGfit.SetLineColor(kBlue);
-    BGfit.DrawCopy("same");
-    // Sideband regions
-    double sb_L_y = (hist0->GetBinContent(hist0->GetMaximumBin())-hist0->GetBinContent(sb_left_upper))*0.50 + hist0->GetBinContent(sb_left_upper); // sb_L_y is 1/4 (updwards from bin at sb_left_upper) distance betwwen bin at sb_left_upper and max y-axis coordiante
-    double sb_R_y = (hist0->GetBinContent(hist0->GetMaximumBin())-hist0->GetBinContent(sb_right_upper))*0.50 + hist0->GetBinContent(sb_right_upper); // sb_L_y is 1/4 (updwards from bin at sb_left_upper) distance betwwen bin at sb_left_upper and max y-axis coordiante
-    TLine *sb_L_l = new TLine(sb_left_lower,0,sb_left_lower,sb_L_y);
-    sb_L_l->SetLineWidth(2);
-    sb_L_l->Draw();
-    TLine *sb_L_u = new TLine(sb_left_upper,0,sb_left_upper,sb_L_y);
-    sb_L_u->SetLineWidth(2);
-    sb_L_u->Draw();
-    TLine *sb_R_l = new TLine(sb_right_lower,0,sb_right_lower,sb_R_y);
-    sb_R_l->SetLineWidth(2);
-    sb_R_l->Draw();
-    TLine *sb_R_u = new TLine(sb_right_upper,0,sb_right_upper,sb_R_y);
-    sb_R_u->SetLineWidth(2);
-    sb_R_u->Draw();
-    TH1* hist0_cln1 = (TH1*)hist0->Clone();
-    hist0_cln1->GetXaxis()->SetRangeUser(sb_left_lower,sb_left_upper);
-    hist0_cln1->SetFillColor(kAzure+7);
-    hist0_cln1->SetFillStyle(3354);
-    hist0_cln1->DrawCopy("same");
-    TH1* hist0_cln2 = (TH1*)hist0->Clone();
-    hist0_cln2->GetXaxis()->SetRangeUser(sb_right_lower,sb_right_upper);
-    hist0_cln2->SetFillColor(kAzure+7);
-    hist0_cln2->SetFillStyle(3354);
-    hist0_cln2->DrawCopy("same");
-    hist0->SetTitle("Mass");
-    hist0->SetMinimum(0);
-    canvas1a->Print("hist0.root");
-*/
 
     // LAST LINE!!!
     // All drawing, plotting, everything, must be done before the follwing line

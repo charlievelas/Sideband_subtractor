@@ -703,7 +703,7 @@ void MyMainFrame::DoFit() {
       cout << "Mean: " << mean << endl;
       double std = mean/10;
       cout << "Standard deviation: " << std << endl;
-      fitFcn->SetParameters(1,1,0.1,500,mean,std);
+      fitFcn->SetParameters(1,1,0.1,1000,mean,std);
       fitFcn->SetLineColor(kViolet);
       histDisc->Fit("fitFcn","R+");
       // Diagnose fit function
