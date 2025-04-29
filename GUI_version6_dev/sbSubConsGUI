@@ -982,7 +982,7 @@ void MyMainFrame::DoFit() {
    //// Drawing
    // Clear each pad before drawing new histograms
    fCanvas->Clear();
-   fCanvas->Divide(2, 1);   
+   fCanvas->Divide(2, 1);
    // Pad 1
    fCanvas->cd(1);
    gPad->Clear();
